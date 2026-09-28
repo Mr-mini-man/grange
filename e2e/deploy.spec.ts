@@ -9,7 +9,9 @@ import {
 	handCenter,
 	login,
 	opponentSlotCenter,
+	register,
 	resetServer,
+	sessionCookie,
 	slotCenter,
 	uniqueName,
 	waitForBoard,
@@ -50,7 +52,16 @@ async function setupGame(browser: Browser): Promise<Setup> {
 			await bob.goto(`${BASE}/games/${gameId}`);
 			await waitForBoard(bob);
 
-			watcher = new GameWatcher(watcherName, gameId);
+			// The watcher is a real account, so it signs in through the UI like a
+			// third player would, then reuses that session on its own socket.
+			const watcherPage = await ctxB.newPage();
+			await register(watcherPage, watcherName);
+			watcher = new GameWatcher(
+				watcherName,
+				gameId,
+				await sessionCookie(watcherPage),
+			);
+			await watcherPage.close();
 			await waitForBoard(alice);
 
 			const g = await watcher.waitFor(

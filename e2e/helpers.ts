@@ -25,10 +25,43 @@ export async function resetServer(): Promise<void> {
 	await fetch(`${BASE}/api/reset`, { method: "POST" });
 }
 
-export async function login(page: Page, name: string): Promise<void> {
+/** The session cookie for the current page's user, for use by GameWatcher. */
+export async function sessionCookie(page: Page): Promise<string> {
+	const cookies = await page.context().cookies(BASE);
+	return cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+}
+
+/**
+ * Registers a fresh account through the UI and returns the user. `/api/reset`
+ * wipes accounts too, so the username only has to be unique within a test.
+ */
+export async function register(
+	page: Page,
+	username: string,
+	password = "harvest-please",
+): Promise<string> {
 	await page.goto(BASE);
-	await page.locator("input").fill(name);
-	await page.getByRole("button", { name: /List Games/i }).click();
+	await page.getByTestId("toggle-mode").click();
+	await page.getByTestId("username").fill(username);
+	await page.getByTestId("email").fill(`${username}@example.test`);
+	await page.getByTestId("password").fill(password);
+	await page.getByRole("button", { name: /Create Account/i }).click();
+	await page.waitForURL("**/dashboard");
+	return username;
+}
+
+/** Registers an account then signs in, leaving the page on the dashboard. */
+export async function login(
+	page: Page,
+	username: string,
+	password = "harvest-please",
+): Promise<void> {
+	await register(page, username, password);
+	await page.getByTestId("logout").click();
+	await page.waitForURL(`${BASE}/`);
+	await page.getByTestId("username").fill(username);
+	await page.getByTestId("password").fill(password);
+	await page.getByRole("button", { name: /Sign In/i }).click();
 	await page.waitForURL("**/dashboard");
 }
 
@@ -102,11 +135,17 @@ export class GameWatcher {
 	private listeners = new Set<() => void>();
 	private gameId: string;
 
-	constructor(watcherName: string, gameId: string) {
+	constructor(
+		watcherName: string,
+		gameId: string,
+		cookie?: string,
+	) {
 		this.gameId = gameId;
-		this.socket = io(BASE);
+		// The handshake identifies the watcher by session cookie, exactly as a
+		// browser would. Callers must have signed in first to obtain it.
+		this.socket = io(BASE, cookie ? { extraHeaders: { Cookie: cookie } } : {});
 		this.socket.on("connect", () => {
-			this.socket.emit("login", { username: watcherName });
+			this.socket.emit("resume");
 			this.socket.emit("joinGame", { gameId });
 		});
 		this.socket.on("gameUpdate", ({ game }: { game: Game }) => {
