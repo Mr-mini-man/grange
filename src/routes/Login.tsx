@@ -38,7 +38,7 @@ export default function Login() {
 						});
 			if (res.ok && res.user) {
 				// login()/register() already stored the user and rebound the socket.
-				navigate("/dashboard");
+				navigate("/world");
 				return;
 			}
 			// Stays on the main menu: nothing navigates without a server-issued session.

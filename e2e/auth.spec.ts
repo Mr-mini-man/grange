@@ -1,13 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { BASE, login, register, resetServer, uniqueName } from "./helpers";
 
-test("a new account can register and lands on the dashboard", async ({ page }) => {
+test("a new account can register and lands on the farm map", async ({ page }) => {
 	await resetServer();
 	const name = uniqueName("Sprout");
 	await register(page, name);
-	await expect(
-		page.getByText(`Logged in as`, { exact: false }),
-	).toContainText(name);
+	await expect(page).toHaveURL(/\/world$/);
+	await expect(page.getByTestId("farm-map-user")).toContainText(name);
 });
 
 test("wrong credentials do not get past the main menu", async ({ page }) => {
@@ -47,7 +46,8 @@ test("a session survives a page reload", async ({ page }) => {
 	await register(page, name);
 
 	await page.reload();
-	await expect(page.getByText(name, { exact: false }).first()).toBeVisible();
+	await expect(page).toHaveURL(/\/world$/);
+	await expect(page.getByTestId("farm-map-user")).toContainText(name);
 });
 
 test("protected routes redirect to the main menu without a session", async ({
@@ -89,7 +89,7 @@ test("registration rejects a short password and a duplicate username", async ({
 
 	await page.getByTestId("password").fill("long-enough-pass");
 	await page.getByRole("button", { name: /Create Account/i }).click();
-	await page.waitForURL("**/dashboard");
+	await page.waitForURL("**/world");
 
 	await page.getByTestId("logout").click();
 	await page.waitForURL(`${BASE}/`);
