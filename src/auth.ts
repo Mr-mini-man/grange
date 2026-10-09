@@ -5,6 +5,10 @@ import { useGameStore } from "./store";
 export interface AuthResponse {
 	ok: boolean;
 	error?: string;
+	code?: string;
+	pending?: boolean;
+	emailSent?: boolean;
+	message?: string;
 	user?: AuthUser;
 }
 
@@ -29,12 +33,13 @@ function accept(data: AuthResponse): AuthResponse {
 	return data;
 }
 
+/** Creates an account. No session is issued until the emailed link is used. */
 export async function register(input: {
 	username: string;
 	email: string;
 	password: string;
 }): Promise<AuthResponse> {
-	return accept((await post("/register", input)).data);
+	return (await post("/register", input)).data;
 }
 
 export async function login(input: {
@@ -48,6 +53,28 @@ export async function logout(): Promise<void> {
 	await post("/logout", {});
 	useGameStore.getState().clearUser();
 	rebindAuth();
+}
+
+/** Completes signup; the server starts a session on success. */
+export async function verifyEmail(token: string): Promise<AuthResponse> {
+	return accept((await post("/verify-email", { token })).data);
+}
+
+export async function resendVerification(email: string): Promise<AuthResponse> {
+	return (await post("/resend-verification", { email })).data;
+}
+
+export async function requestPasswordReset(
+	email: string,
+): Promise<AuthResponse> {
+	return (await post("/request-password-reset", { email })).data;
+}
+
+export async function resetPassword(
+	token: string,
+	password: string,
+): Promise<AuthResponse> {
+	return (await post("/reset-password", { token, password })).data;
 }
 
 /** Resolves the session on page load. Returns null when there is no valid session. */

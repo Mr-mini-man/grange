@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { BASE, login, register, resetServer, uniqueName } from "./helpers";
+import {
+	BASE,
+	login,
+	mailboxFor,
+	register,
+	resetServer,
+	tokenFrom,
+	uniqueName,
+} from "./helpers";
 
 test("a new account can register and lands on the farm map", async ({ page }) => {
 	await resetServer();
@@ -77,11 +85,12 @@ test("registration rejects a short password and a duplicate username", async ({
 }) => {
 	await resetServer();
 	const name = uniqueName("Sprout");
+	const email = `${name}@example.test`;
 
 	await page.goto(BASE);
 	await page.getByTestId("toggle-mode").click();
 	await page.getByTestId("username").fill(name);
-	await page.getByTestId("email").fill(`${name}@example.test`);
+	await page.getByTestId("email").fill(email);
 	await page.getByTestId("password").fill("short");
 	await page.getByRole("button", { name: /Create Account/i }).click();
 	await expect(page.getByTestId("auth-error")).toContainText(/at least 8/i);
@@ -89,13 +98,17 @@ test("registration rejects a short password and a duplicate username", async ({
 
 	await page.getByTestId("password").fill("long-enough-pass");
 	await page.getByRole("button", { name: /Create Account/i }).click();
+	await expect(page.getByTestId("auth-notice")).toBeVisible();
+
+	const token = tokenFrom(await mailboxFor(email), "/verify");
+	await page.goto(`${BASE}/verify?token=${encodeURIComponent(token)}`);
 	await page.waitForURL("**/world");
 
 	await page.getByTestId("logout").click();
 	await page.waitForURL(`${BASE}/`);
 	await page.getByTestId("toggle-mode").click();
 	await page.getByTestId("username").fill(name);
-	await page.getByTestId("email").fill(`other-${name}@example.test`);
+	await page.getByTestId("email").fill(`other-${email}`);
 	await page.getByTestId("password").fill("long-enough-pass");
 	await page.getByRole("button", { name: /Create Account/i }).click();
 	await expect(page.getByTestId("auth-error")).toContainText(/username is taken/i);

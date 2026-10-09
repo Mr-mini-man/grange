@@ -6,8 +6,10 @@ import { registerSocketHandlers } from "./sockets";
 import { state } from "./state";
 import { resolveSocketSession, userStore } from "./auth";
 import { authRouter } from "./auth/routes";
+import { createMailer } from "./email";
 
 const RESET_KEY = process.env.RESET_KEY ?? "";
+const mailer = createMailer();
 
 const app = express();
 app.use(express.json());
@@ -26,7 +28,7 @@ app.get("/api/state", (_req, res) => {
 
 // Registered before ViteExpress.bind, which is a catch-all and would
 // otherwise swallow these routes.
-app.use("/api/auth", authRouter(userStore));
+app.use("/api/auth", authRouter(userStore, mailer));
 
 // Test hook: wipe in-memory state so e2e runs start clean. Accounts are wiped
 // too, so a registration e2e can reuse a fixed username. Guarded because it

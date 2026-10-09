@@ -6,9 +6,11 @@ import type { UserStore } from "./store";
 // names like "Alice-123456789", so a dash has to be legal.
 const USERNAME_RE = /^[a-zA-Z0-9_-]{3,32}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD = 8;
+export const MIN_PASSWORD = 8;
 
-export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
+export type Result<T> =
+	| { ok: true; value: T }
+	| { ok: false; error: string; code?: string };
 
 function validUsername(username: string): boolean {
 	return USERNAME_RE.test(username);
@@ -24,6 +26,7 @@ export function toAuthUser(user: User): AuthUser {
 		id: user.id,
 		username: user.username,
 		email: user.email,
+		emailVerifiedAt: user.emailVerifiedAt,
 		createdAt: user.createdAt,
 	};
 }
@@ -85,6 +88,15 @@ export async function authenticate(
 	}
 	if (!(await verifyPassword(user.passwordHash, password))) {
 		return { ok: false, error: "invalid username or password" };
+	}
+	// Accounts stay locked until the emailed link is followed, which is what
+	// makes the address a real, per-person identifier.
+	if (!user.emailVerifiedAt) {
+		return {
+			ok: false,
+			code: "unverified",
+			error: "please verify your email before signing in",
+		};
 	}
 	return { ok: true, value: toAuthUser(user) };
 }

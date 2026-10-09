@@ -14,12 +14,21 @@ beforeEach(() => {
 	store = new InMemoryUserStore();
 });
 
+/** Flips the verification stamp so auth tests exercise the "verified" path. */
+async function markVerified(target: InMemoryUserStore, username: string) {
+	const user = await target.findUserByUsername(username);
+	if (!user) throw new Error(`no such user: ${username}`);
+	user.emailVerifiedAt = new Date().toISOString();
+	await target.updateUser(user);
+}
+
 describe("register", () => {
 	it("creates an account and never returns the password hash", async () => {
 		const result = await register(store, good);
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		expect(result.value.username).toBe("farmer_jo");
+		expect(result.value.emailVerifiedAt).toBeNull();
 		expect("passwordHash" in result.value).toBe(false);
 
 		const stored = await store.findUserByUsername("farmer_jo");
@@ -56,6 +65,7 @@ describe("register", () => {
 describe("authenticate", () => {
 	beforeEach(async () => {
 		await register(store, good);
+		await markVerified(store, good.username);
 	});
 
 	it("accepts the right password", async () => {
@@ -64,6 +74,24 @@ describe("authenticate", () => {
 			password: "correct-horse",
 		});
 		expect(result.ok).toBe(true);
+	});
+
+	it("rejects an unverified account with an actionable code", async () => {
+		const fresh = new InMemoryUserStore();
+		await register(fresh, {
+			...good,
+			username: "unverified_jo",
+			email: "unverified@example.com",
+		});
+		const result = await authenticate(fresh, {
+			username: "unverified_jo",
+			password: good.password,
+		});
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.code).toBe("unverified");
+			expect(result.error).toMatch(/verify/i);
+		}
 	});
 
 	it("rejects a wrong password", async () => {
