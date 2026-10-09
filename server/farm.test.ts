@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	CROPS,
 	FARM_GRID_SIZE,
 	FARM_GROW_MS,
 	FARM_HARVEST_YIELD,
@@ -52,7 +53,7 @@ describe("tillGround", () => {
 });
 
 describe("plantSeed", () => {
-	it("plants on tilled soil (infinite seeds for testing)", () => {
+	it("plants on tilled soil", () => {
 		farm.tillGround("p1", 4, 4);
 		expect(farm.plantSeed("p1", 4, 4, 777)).toBe(true);
 		expect(farm.getTile("p1", 4, 4)).toMatchObject({
@@ -193,5 +194,48 @@ describe("full tomato lifecycle", () => {
 		states.push(farm.getTile("p1", 9, 9)?.state ?? "missing");
 		expect(states).toEqual(["tilled", "planted", "watered", "ready", "tilled"]);
 		expect(farm.getInventory("p1").tomato).toBe(3);
+	});
+});
+
+describe("brewable crops", () => {
+	it("offers wheat, potato, and barley alongside tomato", () => {
+		for (const crop of ["wheat", "potato", "barley"] as const) {
+			expect(CROPS[crop]).toBeDefined();
+			expect(CROPS[crop].growMs).toBeGreaterThan(0);
+			expect(CROPS[crop].yield).toBeGreaterThan(0);
+		}
+	});
+
+	it("plants the chosen crop and spends one of its seeds", () => {
+		const before = farm.getInventory("p1").wheatSeed;
+		farm.tillGround("p1", 2, 2);
+		expect(farm.plantSeed("p1", 2, 2, 0, "wheat")).toBe(true);
+		expect(farm.getTile("p1", 2, 2)?.cropId).toBe("wheat");
+		expect(farm.getInventory("p1").wheatSeed).toBe(before - 1);
+	});
+
+	it("refuses to plant a crop you have no seeds for", () => {
+		farm.addItem("p1", "barleySeed", -farm.getItem("p1", "barleySeed"));
+		farm.tillGround("p1", 3, 3);
+		expect(farm.plantSeed("p1", 3, 3, 0, "barley")).toBe(false);
+		expect(farm.getTile("p1", 3, 3)?.state).toBe("tilled");
+	});
+
+	it("harvests the crop-specific yield", () => {
+		farm.tillGround("p1", 4, 4);
+		farm.plantSeed("p1", 4, 4, 0, "wheat");
+		farm.waterTile("p1", 4, 4, 0);
+		farm.tickFarm(FARM_GROW_MS * 2);
+		expect(farm.harvestCrop("p1", 4, 4)).toBe(true);
+		expect(farm.getInventory("p1").wheat).toBe(CROPS.wheat.yield);
+	});
+
+	it("uses an explicit harvest yield override when given one", () => {
+		farm.tillGround("p1", 5, 5);
+		farm.plantSeed("p1", 5, 5, 0, "potato");
+		farm.waterTile("p1", 5, 5, 0);
+		farm.tickFarm(FARM_GROW_MS * 2);
+		expect(farm.harvestCrop("p1", 5, 5, 9)).toBe(true);
+		expect(farm.getInventory("p1").potato).toBe(9);
 	});
 });

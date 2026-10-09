@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { logout } from "../auth";
 import { useGameStore } from "../store";
+import FarmHud from "./FarmHud";
 import { FarmMapScene } from "./FarmMapScene";
 import "./farmMap.css";
 import { MAP_HEIGHT, MAP_WIDTH } from "./mapData";
@@ -54,8 +55,9 @@ export default function FarmMap() {
 			<canvas
 				ref={canvasRef}
 				className="farm-map-canvas"
-				aria-label="Farm map with buildings, an empty field, paths, trees, and water"
+				aria-label="Farm map with buildings, fields, paths, trees, and water"
 			/>
+			<FarmHud />
 			<div className="farm-map-bar">
 				<span className="farm-map-user" data-testid="farm-map-user">
 					{username}
