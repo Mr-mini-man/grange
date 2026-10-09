@@ -7,9 +7,16 @@ import { state } from "./state";
 import { resolveSocketSession, userStore } from "./auth";
 import { authRouter } from "./auth/routes";
 import { createMailer } from "./email";
+import { InMemoryBreweryStore } from "./brewing";
+import { InMemoryFarmStore } from "./farm";
+import { registerFarmHandlers } from "./farmSockets";
+import { startFarmTicker } from "./farmTicker";
+import { farmRoom, farmView } from "./farmView";
 
 const RESET_KEY = process.env.RESET_KEY ?? "";
 const mailer = createMailer();
+const farm = new InMemoryFarmStore();
+const brewery = new InMemoryBreweryStore();
 
 const app = express();
 app.use(express.json());
@@ -40,6 +47,8 @@ app.post("/api/reset", (req, res) => {
 	}
 	state.players = [];
 	state.games = {};
+	farm.clear();
+	brewery.clear();
 	void userStore.deleteAll();
 	res.json({ ok: true });
 });
@@ -52,9 +61,21 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
 	socket.emit("connected", { ok: true });
+	const name = (socket.data as { username?: string }).username;
+	if (name) socket.join(farmRoom(name));
 });
 
 registerSocketHandlers(io, state);
+registerFarmHandlers(io, farm, brewery);
+
+startFarmTicker(farm, (ready) => {
+	const players = new Set(ready.map((tile) => tile.player));
+	for (const player of players) {
+		io.to(farmRoom(player)).emit("farmUpdate", {
+			farm: farmView(farm, brewery, player),
+		});
+	}
+});
 
 ViteExpress.bind(app, server);
 
