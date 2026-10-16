@@ -25,7 +25,11 @@ defmodule Grange.Mailer.Console do
 
   @doc "Most recent message captured for an address, or nil."
   @spec latest(String.t()) :: Grange.Mailer.email() | nil
-  def latest(to), do: Agent.get(__MODULE__, fn emails -> Enum.find(emails, &(&1.to == to)) end)
+  def latest(to) do
+    address = String.downcase(to)
+
+    Agent.get(__MODULE__, fn emails -> Enum.find(emails, &(String.downcase(&1.to) == address)) end)
+  end
 
   @doc "Drops every captured message."
   @spec reset() :: :ok
