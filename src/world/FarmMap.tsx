@@ -13,11 +13,13 @@ import { useGameStore } from "../store";
 import "../inventory/inventory.css";
 import { useInventoryStore } from "../inventory/inventoryStore";
 import { useInventoryKeys } from "../inventory/useInventoryKeys";
+import { MOVABLE_PROP_ASSETS } from "./mapData";
 import { BlackjackOverlay } from "./BlackjackOverlay";
 import { CasinoScene } from "./CasinoScene";
 import { casinoResources } from "./casinoResources";
 import { FarmMapScene } from "./FarmMapScene";
 import FarmShop from "./FarmShop";
+import { useFarmItemNotice } from "./farmItemNotice";
 import type { FarmHudSnapshot } from "./farmHud";
 import "./farmMap.css";
 import { MarketplaceScene } from "./MarketplaceScene";
@@ -25,6 +27,7 @@ import { MarketWindow } from "./MarketWindow";
 import { MAP_HEIGHT, MAP_WIDTH } from "./mapData";
 import { MARKETS } from "./marketData";
 import { marketplaceResources } from "./marketplaceResources";
+import { PokerOverlay } from "./PokerOverlay";
 import { RouletteOverlay } from "./RouletteOverlay";
 import { resources } from "./resources";
 import { useFarmMarket } from "./useFarmMarket";
@@ -65,6 +68,7 @@ export default function FarmMap() {
 	const selectedHotbar = useInventoryStore((s) => s.selectedHotbar);
 	const hotbar = useInventoryStore((s) => s.hotbar);
 	const addItem = useInventoryStore((s) => s.addItem);
+	const setItemCount = useInventoryStore((s) => s.setItemCount);
 	const setInventoryOpen = useInventoryStore((s) => s.setInventoryOpen);
 	const pushNotice = useNotificationStore((s) => s.push);
 	const paused = usePauseStore((s) => s.paused);
@@ -108,6 +112,21 @@ export default function FarmMap() {
 		if (next) setTool(next);
 	}, [hotbar, selectedHotbar, setTool]);
 
+	const heldItem = hotbar[selectedHotbar]?.itemId;
+	useFarmItemNotice(heldItem, pushNotice);
+
+	const fenceCount = farm?.fence_count;
+	useEffect(() => {
+		if (fenceCount !== undefined && isOwner) setItemCount("fence", fenceCount);
+	}, [fenceCount, isOwner, setItemCount]);
+
+	const propInventory = farm?.prop_inventory;
+	useEffect(() => {
+		if (!propInventory || !isOwner) return;
+		for (const asset of MOVABLE_PROP_ASSETS)
+			setItemCount(asset, propInventory[asset] ?? 0);
+	}, [propInventory, isOwner, setItemCount]);
+
 	// Harvested tomatoes become physical inventory items. The server keeps its
 	// own barn/lobby total; we mirror the positive delta for the owner into the
 	// inventory. The first snapshot of a farm only sets the baseline, so a
@@ -125,16 +144,16 @@ export default function FarmMap() {
 	const [area, setArea] = useState<WorldArea>("Farm");
 	const [travelPrompt, setTravelPrompt] = useState<string | null>(null);
 	const [blackjackOpen, setBlackjackOpen] = useState(false);
+	const [pokerOpen, setPokerOpen] = useState(false);
 	const [rouletteOpen, setRouletteOpen] = useState(false);
-	const [shopOpen, setShopOpen] = useState(false);
-	const [worldReady, setWorldReady] = useState(false);
+	const [engineReady, setEngineReady] = useState(false);
 
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas || !target) return;
 
 		let cancelled = false;
-		setWorldReady(false);
+		setEngineReady(false);
 		const engine = new ex.Engine({
 			canvasElement: canvas,
 			viewport: { width: MAP_WIDTH, height: MAP_HEIGHT },
@@ -149,7 +168,7 @@ export default function FarmMap() {
 		scene.onFarmUpdate = (snapshot) => {
 			if (cancelled) return;
 			setHud(snapshot);
-			setWorldReady(true);
+			setEngineReady(true);
 		};
 		sceneRef.current = scene;
 		engine.addScene("farm-map", scene);
@@ -166,6 +185,10 @@ export default function FarmMap() {
 			() => {
 				casino.setPaused(true);
 				setBlackjackOpen(true);
+			},
+			() => {
+				casino.setPaused(true);
+				setPokerOpen(true);
 			},
 			() => {
 				casino.setPaused(true);
@@ -235,8 +258,13 @@ export default function FarmMap() {
 	function closeCasinoOverlay() {
 		casinoRef.current?.setPaused(false);
 		setBlackjackOpen(false);
+		setPokerOpen(false);
 		setRouletteOpen(false);
 	}
+
+	// The farm channel join is what sets `farm`; until it lands, an action would
+	// be dropped by emitFarmAction, so the world isn't interactive yet.
+	const worldReady = engineReady && farm !== null;
 
 	return (
 		<main
@@ -286,14 +314,6 @@ export default function FarmMap() {
 									{entry.label}
 								</button>
 							))}
-							<button
-								type="button"
-								data-testid="open-shop"
-								className="farm-tool"
-								onClick={() => setShopOpen(true)}
-							>
-								Shop
-							</button>
 						</div>
 					) : null}
 					<div className="farm-status">
@@ -306,9 +326,10 @@ export default function FarmMap() {
 			)}
 			<Hud tiles={farm?.tiles.length ?? 0} hovered={hud.hovered} />
 			<InventoryPanel />
-			{shopOpen && <FarmShop onClose={() => setShopOpen(false)} />}
+			<FarmShop />
 			{paused && <PauseMenu />}
 			{blackjackOpen && <BlackjackOverlay onClose={closeCasinoOverlay} />}
+			{pokerOpen && <PokerOverlay onClose={closeCasinoOverlay} />}
 			{rouletteOpen && <RouletteOverlay onClose={closeCasinoOverlay} />}
 		</main>
 	);

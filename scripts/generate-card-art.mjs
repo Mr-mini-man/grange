@@ -59,35 +59,39 @@ function pipLayout(rank) {
 	const M = 168;
 	switch (rank) {
 		case "A":
-			return [[C, M, 0.82]];
+			return [[C, M, 1]];
 		case "2":
-			return [[C, T, 0.42], [C, B, 0.42]];
+			return [[C, T, 0.5], [C, B, 0.5]];
 		case "3":
-			return [[C, T, 0.42], [C, M, 0.42], [C, B, 0.42]];
+			return [[C, T, 0.5], [C, M, 0.5], [C, B, 0.5]];
 		case "4":
-			return [[L, T, 0.42], [R, T, 0.42], [L, B, 0.42], [R, B, 0.42]];
+			return [[L, T, 0.5], [R, T, 0.5], [L, B, 0.5], [R, B, 0.5]];
 		case "5":
-			return [[L, T, 0.42], [R, T, 0.42], [C, M, 0.42], [L, B, 0.42], [R, B, 0.42]];
+			return [[L, T, 0.5], [R, T, 0.5], [C, M, 0.5], [L, B, 0.5], [R, B, 0.5]];
 		case "6":
-			return [[L, T, 0.42], [R, T, 0.42], [L, M, 0.42], [R, M, 0.42], [L, B, 0.42], [R, B, 0.42]];
+			return [[L, T, 0.5], [R, T, 0.5], [L, M, 0.5], [R, M, 0.5], [L, B, 0.5], [R, B, 0.5]];
 		case "7":
-			return [[L, T, 0.42], [R, T, 0.42], [C, 119, 0.42], [L, M, 0.42], [R, M, 0.42], [L, B, 0.42], [R, B, 0.42]];
+			return [[L, T, 0.5], [R, T, 0.5], [C, 119, 0.5], [L, M, 0.5], [R, M, 0.5], [L, B, 0.5], [R, B, 0.5]];
 		case "8":
-			return [[L, T, 0.42], [R, T, 0.42], [C, 119, 0.42], [L, M, 0.42], [R, M, 0.42], [C, 217, 0.42], [L, B, 0.42], [R, B, 0.42]];
+			return [[L, T, 0.5], [R, T, 0.5], [C, 119, 0.5], [L, M, 0.5], [R, M, 0.5], [C, 217, 0.5], [L, B, 0.5], [R, B, 0.5]];
 		case "9":
-			return [[L, T, 0.42], [R, T, 0.42], [L, 135, 0.42], [R, 135, 0.42], [C, M, 0.42], [L, 201, 0.42], [R, 201, 0.42], [L, B, 0.42], [R, B, 0.42]];
+			return [[L, T, 0.5], [R, T, 0.5], [L, 135, 0.5], [R, 135, 0.5], [C, M, 0.5], [L, 201, 0.5], [R, 201, 0.5], [L, B, 0.5], [R, B, 0.5]];
 		default:
-			return [[L, T, 0.42], [R, T, 0.42], [C, 102, 0.42], [L, 135, 0.42], [R, 135, 0.42], [L, 201, 0.42], [R, 201, 0.42], [C, 234, 0.42], [L, B, 0.42], [R, B, 0.42]];
+			return [[L, T, 0.5], [R, T, 0.5], [C, 102, 0.5], [L, 135, 0.5], [R, 135, 0.5], [L, 201, 0.5], [R, 201, 0.5], [C, 234, 0.5], [L, B, 0.5], [R, B, 0.5]];
 	}
 }
 
 /** Corner rank + suit marker. The bottom one is a 180deg rotation of this. */
 function indexMark(rank, suit, color) {
+	// "10" is two glyphs; squeeze it to one character's width so the enlarged
+	// mark stays clear of the leftmost pip column.
+	const squeeze =
+		rank.length > 1 ? ` textLength="30" lengthAdjust="spacingAndGlyphs"` : "";
 	return (
-		`<g transform="translate(16,14)">` +
-		`<text x="0" y="30" font-family="Georgia,'Times New Roman',serif" ` +
-		`font-size="34" font-weight="700" fill="${color}">${rank}</text>` +
-		`<g transform="translate(18,54) scale(0.22) translate(-50,-50)">${suitShape(suit, color)}</g>` +
+		`<g transform="translate(14,12)">` +
+		`<text x="0" y="38" font-family="Georgia,'Times New Roman',serif" ` +
+		`font-size="44" font-weight="700" fill="${color}"${squeeze}>${rank}</text>` +
+		`<g transform="translate(20,68) scale(0.28) translate(-50,-50)">${suitShape(suit, color)}</g>` +
 		`</g>`
 	);
 }
@@ -96,9 +100,9 @@ function faceCard(rank, suit, color) {
 	return (
 		`<rect x="32" y="32" width="176" height="272" rx="10" fill="none" stroke="${color}" stroke-width="2" opacity="0.45"/>` +
 		`<rect x="40" y="40" width="160" height="256" rx="8" fill="${color}" opacity="0.07"/>` +
-		`<text x="120" y="176" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" ` +
-		`font-size="100" font-weight="700" fill="${color}">${rank}</text>` +
-		`<g transform="translate(120,242) scale(0.5) translate(-50,-50)">${suitShape(suit, color)}</g>`
+		`<text x="120" y="178" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" ` +
+		`font-size="120" font-weight="700" fill="${color}">${rank}</text>` +
+		`<g transform="translate(120,248) scale(0.62) translate(-50,-50)">${suitShape(suit, color)}</g>`
 	);
 }
 

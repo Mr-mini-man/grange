@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { BASE, register, resetServer, uniqueName } from "./helpers";
+import {
+	BASE,
+	register,
+	resetServer,
+	uniqueName,
+	walkUntilPrompt,
+} from "./helpers";
 
 test("farm world loads without asset or page errors", async ({ page }) => {
 	const pageErrors: string[] = [];
@@ -114,14 +120,14 @@ test("the seed market opens a window with a seeds tab", async ({ page }) => {
 	await expect(page.getByTestId("market-item-tomato-seed")).toContainText(
 		"Tomato Seeds",
 	);
-	await expect(page.getByTestId("market-owned-tomato-seed")).toContainText("0");
+	await expect(page.getByTestId("market-owned-tomato-seed")).toContainText("10");
 	// The grid has 8 cells; one is filled by the tomato seed card.
 	await expect(page.getByTestId("market-slot")).toHaveCount(7);
 	await expect(page.getByTestId("farm-balance")).toContainText("100");
 
 	await page.getByTestId("market-action-tomato-seed").click();
 	await expect(page.getByTestId("farm-balance")).toContainText("99");
-	await expect(page.getByTestId("market-owned-tomato-seed")).toContainText("10");
+	await expect(page.getByTestId("market-owned-tomato-seed")).toContainText("20");
 
 	await page.keyboard.press("Escape");
 	await expect(market).toHaveCount(0);
@@ -211,16 +217,24 @@ test("selling a chosen number of tomatoes uses the quantity stepper", async ({
 
 	// Hoe, plant, and water the tile the player spawns on, then harvest it.
 	const tiles = page.getByTestId("farm-map-tiles");
+	const tile = page.getByTestId("farm-tile");
+	const box = await page.locator(".farm-map-canvas").boundingBox();
+	expect(box).not.toBeNull();
+	await page.mouse.move(box!.x + (9.5 / 18) * box!.width,
+		box!.y + (9.5 / 12) * box!.height);
 	await page.keyboard.press("1");
 	await page.keyboard.press("Space");
 	await expect(tiles).toHaveText("1 tiles");
+	await expect(tile).toContainText("(9, 9): tilled");
 	await page.keyboard.press("2");
 	await page.keyboard.press("Space");
+	await expect(tile).toContainText("(9, 9): planted");
 	await page.keyboard.press("3");
 	await page.keyboard.press("Space");
+	await expect(tile).toContainText("(9, 9): watered");
 
 	// Wait out the 10s growth, then harvest for 3 tomatoes.
-	await page.waitForTimeout(12_000);
+	await expect(tile).toContainText("(9, 9): ready", { timeout: 20_000 });
 	await page.keyboard.press("4");
 	await page.keyboard.press("Space");
 	await expect(page.getByTestId("farm-tomatoes")).toContainText("3");
@@ -317,10 +331,7 @@ test("the blackjack table opens a playable sub-screen", async ({ page }) => {
 	await expect(canvas).toHaveAttribute("aria-label", /^Casino map/);
 
 	// Walk down to the blackjack table and open the sub-screen.
-	await page.keyboard.down("s");
-	await page.waitForTimeout(800);
-	await page.keyboard.up("s");
-	await expect(prompt).toContainText("play blackjack");
+	await walkUntilPrompt(page, ["s"], "play blackjack");
 	await page.keyboard.press("e");
 
 	const overlay = page.getByTestId("blackjack-overlay");

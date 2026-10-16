@@ -1,23 +1,27 @@
 import { expect, test } from "@playwright/test";
-import { register, resetServer, uniqueName, walkToCasino } from "./helpers";
+import {
+	register,
+	resetServer,
+	uniqueName,
+	walkToCasino,
+	walkUntilPrompt,
+} from "./helpers";
 
 test("the roulette table opens a playable sub-screen", async ({ page }) => {
 	await resetServer();
 	await register(page, uniqueName("Spinner"));
 
 	const canvas = page.locator("canvas");
-	const prompt = page.getByTestId("travel-prompt");
 	await page.waitForLoadState("networkidle");
 	await walkToCasino(page);
 
-	// Walk to the roulette table on the right and open the sub-screen.
+	// Anchor on the blackjack prompt (same table row), drift down into the row,
+	// then move right until the roulette prompt shows.
+	await walkUntilPrompt(page, ["s"], "play blackjack");
 	await page.keyboard.down("s");
-	await page.keyboard.down("d");
-	await page.waitForTimeout(1_800);
+	await page.waitForTimeout(700);
 	await page.keyboard.up("s");
-	await page.waitForTimeout(1_000);
-	await page.keyboard.up("d");
-	await expect(prompt).toContainText("play roulette");
+	await walkUntilPrompt(page, ["d"], "play roulette");
 	await page.keyboard.press("e");
 
 	const overlay = page.getByTestId("roulette-overlay");

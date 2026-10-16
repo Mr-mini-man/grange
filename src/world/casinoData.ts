@@ -32,6 +32,7 @@ export type CasinoAssetKey =
 export const CASINO_PLAYER_SPAWN = { x: 576, y: 220 } as const;
 export const CASINO_EXIT = { x: 576, y: 175 } as const;
 export const CASINO_BLACKJACK_TABLE = { x: 576, y: 430 } as const;
+export const CASINO_POKER_TABLE = { x: 205, y: 430 } as const;
 export const CASINO_ROULETTE_TABLE = { x: 947, y: 430 } as const;
 
 export const casinoProps: RenderedProp<CasinoAssetKey>[] = [
@@ -41,7 +42,7 @@ export const casinoProps: RenderedProp<CasinoAssetKey>[] = [
 	{ asset: "wall-post", x: 34, y: 185, width: 55 },
 	{ asset: "wall-post", x: 1118, y: 185, width: 55 },
 
-	{ asset: "poker-table", x: 205, y: 430, width: 250 },
+	{ asset: "poker-table", x: CASINO_POKER_TABLE.x, y: CASINO_POKER_TABLE.y, width: 250 },
 	{ asset: "blackjack-table", x: CASINO_BLACKJACK_TABLE.x, y: CASINO_BLACKJACK_TABLE.y, width: 265 },
 	{ asset: "roulette-table", x: CASINO_ROULETTE_TABLE.x, y: CASINO_ROULETTE_TABLE.y, width: 260 },
 	{ asset: "chair-front-left", x: 205, y: 535, width: 70 },

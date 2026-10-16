@@ -84,6 +84,21 @@ export class EconomyManager {
   }
 
   /**
+   * Moves chips from the wallet to a casino table (posting a blind, calling or
+   * raising). Kept separate from `buy` so table transfers aren't confused with
+   * purchasing goods, though both are mirrored to the account the same way.
+   * Returns false when the wallet cannot cover the amount.
+   */
+  withdrawChips(amount: number): boolean {
+    return this.buy(amount).success;
+  }
+
+  /** Returns chips from a casino table to the wallet (cashing out a pot). */
+  depositChips(amount: number): void {
+    this.sell(amount);
+  }
+
+  /**
    * Logic for selling harvested crops or goods.
    */
   sell(earnings: number): TransactionResult {

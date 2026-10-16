@@ -155,4 +155,34 @@ describe("EconomyManager", () => {
       expect(manager.canAfford(Number.POSITIVE_INFINITY)).toBe(false);
     });
   });
+
+  describe("chips", () => {
+    it("withdraws chips and reports the spend like a purchase", () => {
+      const manager = new EconomyManager(100);
+      const deltas: number[] = [];
+      manager.setOnChange((delta) => deltas.push(delta));
+
+      expect(manager.withdrawChips(25)).toBe(true);
+
+      expect(manager.getBalance()).toBe(75);
+      expect(deltas).toEqual([-25]);
+    });
+
+    it("refuses to withdraw more than the wallet holds", () => {
+      const manager = new EconomyManager(100);
+      expect(manager.withdrawChips(101)).toBe(false);
+      expect(manager.getBalance()).toBe(100);
+    });
+
+    it("deposits a won pot back into the wallet", () => {
+      const manager = new EconomyManager(100);
+      const deltas: number[] = [];
+      manager.setOnChange((delta) => deltas.push(delta));
+
+      manager.depositChips(40);
+
+      expect(manager.getBalance()).toBe(140);
+      expect(deltas).toEqual([40]);
+    });
+  });
 });

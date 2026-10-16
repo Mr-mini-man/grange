@@ -1,6 +1,12 @@
 import { type Channel, Socket } from "phoenix";
 import type { CropId, MaterialId, PotionId } from "../shared/farm";
-import type { ActiveFarm, FarmAction, FarmSummary, Player } from "../shared/types";
+import type {
+	ActiveFarm,
+	FarmAction,
+	FarmPropAction,
+	FarmSummary,
+	Player,
+} from "../shared/types";
 import { useGameStore } from "./store";
 
 /** Session token used to authenticate the socket handshake. */
@@ -158,6 +164,14 @@ export function emitFarmAction(
 	cb?: (res: Ack) => void,
 ): void {
 	pushFarm(owner, "farmAction", { action }, "Invalid action", cb);
+}
+
+export function emitFarmPropAction(
+	owner: string,
+	action: FarmPropAction,
+	cb?: (res: Ack) => void,
+): void {
+	pushFarm(owner, "farmPropAction", { action }, "Invalid object action", cb);
 }
 
 /** Sells tomatoes from the visited farm's barn back to the market. */

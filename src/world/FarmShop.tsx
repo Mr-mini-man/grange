@@ -19,18 +19,35 @@ function useNow(): number {
 }
 
 /**
- * The market / brewery / bar overlay for the owner's farm. Buying seeds and
- * materials, brewing, and selling all go through the server-authoritative
- * farm channel; this only renders the state broadcast back.
+ * The market / brewery / bar overlay for the owner's farm, plus the button
+ * that opens it. Buying seeds and materials, brewing, and selling all go
+ * through the server-authoritative farm channel; this only renders the state
+ * broadcast back.
  */
-export default function FarmShop({ onClose }: { onClose: () => void }) {
+export default function FarmShop() {
 	const farm = useGameStore((s) => s.activeFarm);
+	const username = useGameStore((s) => s.username);
 	const crop = useGameStore((s) => s.crop);
 	const setCrop = useGameStore((s) => s.setCrop);
 	const [tab, setTab] = useState<Tab>("market");
+	const [open, setOpen] = useState(false);
 	const now = useNow();
 
-	if (!farm) return null;
+	if (!farm || farm.owner !== username) return null;
+
+	if (!open) {
+		return (
+			<button
+				type="button"
+				data-testid="open-shop"
+				className="farm-shop-toggle"
+				onClick={() => setOpen(true)}
+			>
+				Shop
+			</button>
+		);
+	}
+
 	const inv = farm.inventory;
 	const effects = farm.brewery.effects.filter((e) => e.expiresAt > now);
 
@@ -42,7 +59,7 @@ export default function FarmShop({ onClose }: { onClose: () => void }) {
 					type="button"
 					data-testid="farm-shop-close"
 					className="farm-secondary"
-					onClick={onClose}
+					onClick={() => setOpen(false)}
 				>
 					Close
 				</button>

@@ -4,7 +4,7 @@ defmodule GrangeWeb.FarmChannel do
 
   Replaces the socket.io `visitFarm` / `leaveFarm` / `farmAction` events and
   the `farmUpdate` broadcast. Identity comes from the session, never the client.
-  Market, brewery, and bar actions share the same owner-only trust boundary.
+  Market, brewery, bar, and prop actions share the same owner-only boundary.
   """
 
   use Phoenix.Channel
@@ -33,6 +33,10 @@ defmodule GrangeWeb.FarmChannel do
   @impl true
   def handle_in("farmAction", payload, socket) do
     authorize(socket, &act(socket, &1, field(payload, "action")))
+  end
+
+  def handle_in("farmPropAction", payload, socket) do
+    authorize(socket, &prop_act(socket, &1, field(payload, "action")))
   end
 
   def handle_in("sellTomatoes", payload, socket) do
@@ -98,6 +102,8 @@ defmodule GrangeWeb.FarmChannel do
   end
 
   defp act(socket, owner, action), do: respond(socket, FarmStore.action(owner, action))
+
+  defp prop_act(socket, owner, action), do: respond(socket, FarmStore.prop_action(owner, action))
 
   defp sell(socket, owner, count), do: respond(socket, FarmStore.sell_tomatoes(owner, count))
 

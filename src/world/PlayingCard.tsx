@@ -72,17 +72,22 @@ export function PlayingCard({
 		};
 	}, [shouldDeal, delay, deckRef, startsFaceDown]);
 
+	// A face-down card must never expose its face through the DOM, even if a
+	// caller (wrongly) still passes the real card.
+	const showFace = Boolean(card) && !faceDown;
 	return (
 		<div
 			ref={ref}
 			className={faceDown ? "bj-card bj-card-down" : "bj-card"}
 			role="img"
-			aria-label={card ? `${card.rank} of ${card.suit}` : "Face-down card"}
+			aria-label={
+				showFace && card ? `${card.rank} of ${card.suit}` : "Face-down card"
+			}
 		>
 			<div className="bj-card-inner" ref={innerRef}>
 				<img
 					className="bj-card-front"
-					src={card ? cardArtSrc(card) : undefined}
+					src={showFace && card ? cardArtSrc(card) : undefined}
 					alt=""
 					draggable={false}
 				/>

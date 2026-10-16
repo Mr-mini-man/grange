@@ -8,6 +8,9 @@ export default defineConfig({
 	fullyParallel: false,
 	workers: 1,
 	timeout: 60_000,
+	// The CI workflow uploads `playwright-report/`, so always emit the HTML
+	// report (the default list-only reporter never creates it).
+	reporter: [["list"], ["html", { open: "never" }]],
 	use: {
 		baseURL: BASE_URL,
 	},

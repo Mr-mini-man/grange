@@ -1,4 +1,5 @@
 import * as ex from "excalibur";
+import { addFarmerGraphics, updateFarmerGraphics } from "./farmerSprite";
 import { InputManager } from "./InputManager";
 import { MAP_HEIGHT, MAP_WIDTH } from "./mapData";
 import { updateWalkingPlayer } from "./playerMovement";
@@ -53,10 +54,10 @@ export abstract class WalkingScene extends ex.Scene<SceneActivationData> {
 			pos: this.options.spawn.clone(),
 			width: 32,
 			height: 32,
-			color: ex.Color.fromHex("#ffcc00"),
 			anchor: ex.vec(0.5, 1),
 			z: 200,
 		});
+		addFarmerGraphics(this.player);
 		this.add(this.player);
 		this.camera.pos = ex.vec(MAP_WIDTH / 2, MAP_HEIGHT / 2);
 	}
@@ -99,6 +100,7 @@ export abstract class WalkingScene extends ex.Scene<SceneActivationData> {
 			delta,
 			this.options.obstacles,
 		);
+		updateFarmerGraphics(this.player, direction);
 
 		const interaction = this.options.interactions.find(
 			(candidate) =>

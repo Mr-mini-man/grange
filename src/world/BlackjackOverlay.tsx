@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MIN_BET } from "./blackjack";
 import { BlackjackTable } from "./blackjackGame";
-import type {
-	Bank,
-	BlackjackSnapshot,
-	HandResult,
-} from "./blackjackTypes";
+import type { Bank, BlackjackSnapshot, HandResult } from "./blackjackTypes";
 import { buildDealerSlots, cardCode } from "./cardSlots";
 import { Deck } from "./Deck";
 import { economy } from "./EconomyManager";
@@ -110,6 +106,7 @@ export function BlackjackOverlay({ onClose }: BlackjackOverlayProps) {
 					<span className="bj-balance" data-testid="blackjack-balance">
 						${snapshot.balance.toLocaleString()}
 					</span>
+					<Deck deckRef={deckRef} />
 					<button
 						type="button"
 						className="bj-close"
@@ -120,70 +117,67 @@ export function BlackjackOverlay({ onClose }: BlackjackOverlayProps) {
 					</button>
 				</header>
 
-				<div className="bj-deck-row">
-					<span className="bj-deck-label">Deck</span>
-					<Deck deckRef={deckRef} />
-				</div>
-
-				<section className="bj-seat bj-dealer" data-testid="blackjack-dealer">
-					<span className="bj-seat-name">Dealer</span>
-					<div className="bj-hand">
-						{slots.map((slot, i) => (
-							<PlayingCard
-								key={slot.key}
-								card={slot.card}
-								faceDown={slot.faceDown}
-								deal={isNew(slot.code)}
-								dealDelay={i * 90}
-								deckRef={deckRef}
-							/>
-						))}
-					</div>
-					<span className="bj-total">
-						{snapshot.dealerHidden
-							? `${snapshot.dealerTotal} + ?`
-							: totalLabel(snapshot.dealerTotal, snapshot.dealerSoft)}
-					</span>
-				</section>
-
-				<section className="bj-players">
-					{snapshot.hands.map((hand, index) => (
-						<div
-							key={hand.id}
-							className={
-								active && index === snapshot.activeHand
-									? "bj-seat bj-player bj-player-active"
-									: "bj-seat bj-player"
-							}
-							data-testid="blackjack-player-hand"
-						>
-							<span className="bj-seat-name">
-								{snapshot.hands.length > 1 ? `Hand ${index + 1}` : "You"}
-							</span>
-							<div className="bj-hand">
-								{hand.cards.map((card, i) => (
-									<PlayingCard
-										key={cardCode(card)}
-										card={card}
-										deal={isNew(cardCode(card))}
-										dealDelay={i * 90}
-										deckRef={deckRef}
-									/>
-								))}
-							</div>
-							<span className="bj-total">
-								{totalLabel(hand.total, hand.soft)}
-							</span>
-							<span className="bj-wager">${hand.wager}</span>
-							{hand.result && (
-								<span className="bj-result">{RESULT_LABEL[hand.result]}</span>
-							)}
+				<div className="bj-scroll">
+					<section className="bj-seat bj-dealer" data-testid="blackjack-dealer">
+						<span className="bj-seat-name">Dealer</span>
+						<div className="bj-hand">
+							{slots.map((slot, i) => (
+								<PlayingCard
+									key={slot.key}
+									card={slot.card}
+									faceDown={slot.faceDown}
+									deal={isNew(slot.code)}
+									dealDelay={i * 90}
+									deckRef={deckRef}
+								/>
+							))}
 						</div>
-					))}
-					{snapshot.hands.length === 0 && (
-						<p className="bj-empty">No cards dealt yet.</p>
-					)}
-				</section>
+						<span className="bj-total">
+							{snapshot.dealerHidden
+								? `${snapshot.dealerTotal} + ?`
+								: totalLabel(snapshot.dealerTotal, snapshot.dealerSoft)}
+						</span>
+					</section>
+
+					<section className="bj-players">
+						{snapshot.hands.map((hand, index) => (
+							<div
+								key={hand.id}
+								className={
+									active && index === snapshot.activeHand
+										? "bj-seat bj-player bj-player-active"
+										: "bj-seat bj-player"
+								}
+								data-testid="blackjack-player-hand"
+							>
+								<span className="bj-seat-name">
+									{snapshot.hands.length > 1 ? `Hand ${index + 1}` : "You"}
+								</span>
+								<div className="bj-hand">
+									{hand.cards.map((card, i) => (
+										<PlayingCard
+											key={cardCode(card)}
+											card={card}
+											deal={isNew(cardCode(card))}
+											dealDelay={i * 90}
+											deckRef={deckRef}
+										/>
+									))}
+								</div>
+								<span className="bj-total">
+									{totalLabel(hand.total, hand.soft)}
+								</span>
+								<span className="bj-wager">${hand.wager}</span>
+								{hand.result && (
+									<span className="bj-result">{RESULT_LABEL[hand.result]}</span>
+								)}
+							</div>
+						))}
+						{snapshot.hands.length === 0 && (
+							<p className="bj-empty">No cards dealt yet.</p>
+						)}
+					</section>
+				</div>
 
 				<p className="bj-message" data-testid="blackjack-message">
 					{snapshot.message}

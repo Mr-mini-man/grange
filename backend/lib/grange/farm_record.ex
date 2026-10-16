@@ -14,6 +14,7 @@ defmodule Grange.FarmRecord do
     field(:tomatoes, :integer, default: 0)
     field(:inventory, :map, default: %{})
     field(:brewery, :map, default: %{})
+    field(:fence_count, :integer, default: 20)
     has_many(:tiles, Grange.Tile, foreign_key: :owner, references: :owner)
     timestamps(type: :utc_datetime_usec)
   end
@@ -23,6 +24,7 @@ defmodule Grange.FarmRecord do
           tomatoes: non_neg_integer(),
           inventory: map(),
           brewery: map(),
+          fence_count: non_neg_integer(),
           tiles: [Grange.Tile.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil

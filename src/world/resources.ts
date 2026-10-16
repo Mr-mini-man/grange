@@ -1,5 +1,7 @@
 import * as ex from "excalibur";
+import { fenceResources } from "./fenceResources";
 import type { PropKey, TerrainKey } from "./mapData";
+import { farmerImage } from "./farmerSprite";
 
 export const image = (path: string) =>
 	new ex.ImageSource(`/assets/${path}`, {
@@ -28,8 +30,6 @@ export const propImages: Record<PropKey, ex.ImageSource> = {
 	sign: image("farm/objects/sign.webp"),
 	barrel: image("farm/objects/barrel.webp"),
 	crate: image("farm/objects/crate.webp"),
-	"fence-horizontal": image("farm/objects/fence-horizontal.webp"),
-	"fence-post": image("farm/objects/fence-post.webp"),
 	daisies: image("farm/plants/daisies.webp"),
 	marigolds: image("farm/plants/marigolds.webp"),
 	"blue-flowers": image("farm/plants/blue-flowers.webp"),
@@ -38,6 +38,8 @@ export const propImages: Record<PropKey, ex.ImageSource> = {
 
 export const resources = [
 	terrainImage,
+	...fenceResources,
+	farmerImage,
 	...Object.values(propImages),
 	...Object.values(cropImages),
 ];
