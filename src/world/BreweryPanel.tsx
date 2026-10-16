@@ -5,9 +5,9 @@ import { useGameStore } from "../store";
 import { EFFECT_LABEL, cropName } from "./farmUi";
 
 export default function BreweryPanel() {
-	const farm = useGameStore((s) => s.farm);
+	const farm = useGameStore((s) => s.activeFarm);
 	if (!farm) return null;
-	const { inventory: inv, brewery } = farm;
+	const { owner, inventory: inv, brewery } = farm;
 
 	if (!brewery.built) {
 		return (
@@ -25,7 +25,7 @@ export default function BreweryPanel() {
 					type="button"
 					data-testid="build-brewery"
 					className="farm-primary"
-					onClick={() => emitBuildBrewery()}
+					onClick={() => emitBuildBrewery(owner)}
 				>
 					Build Brewery
 				</button>
@@ -60,7 +60,7 @@ export default function BreweryPanel() {
 							<button
 								type="button"
 								className="farm-primary"
-								onClick={() => emitBrew(id)}
+								onClick={() => emitBrew(owner, id)}
 							>
 								Brew
 							</button>
@@ -68,7 +68,7 @@ export default function BreweryPanel() {
 								type="button"
 								className="farm-secondary"
 								disabled={inv.potions[id] <= 0}
-								onClick={() => emitUsePotion(id)}
+								onClick={() => emitUsePotion(owner, id)}
 							>
 								Drink
 							</button>

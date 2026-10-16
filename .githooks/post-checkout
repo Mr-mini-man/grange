@@ -1,0 +1,7 @@
+#!/bin/sh
+# Download dependencies after a clone or branch switch when a lockfile changed.
+# scripts/bootstrap.mjs is a no-op when everything is already installed.
+# $3 is 1 for a branch checkout and 0 when only files changed.
+if [ "$3" = "1" ]; then
+	node scripts/bootstrap.mjs --hook || true
+fi

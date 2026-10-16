@@ -122,7 +122,6 @@ export function harvestYieldFor(
 	return activeEffect(effects, "luck", now) ? base + LUCK_BONUS_YIELD : base;
 }
 
-
 /** Movement multiplier the client applies to the farmer while Swift Sip runs. */
 export function moveSpeedMultiplier(
 	effects: ActiveEffect[],

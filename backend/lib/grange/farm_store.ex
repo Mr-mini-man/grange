@@ -1,0 +1,304 @@
+defmodule Grange.FarmStore do
+  @moduledoc """
+  Owns every player's field and barn inventory, plus the lobby listings.
+
+  State is persisted in the database, so farms survive restarts. Each
+  successful change broadcasts the affected farm and the lobby summaries over
+  PubSub. Tile timing uses wall-clock milliseconds (`System.system_time/1`) so
+  crops keep ripening across restarts.
+  """
+
+  import Ecto.Query
+
+  alias Grange.{Brewery, Crops, Farm, FarmRecord, Inventory, Repo, Tile}
+
+  @lobby_topic "lobby"
+
+  @spec ensure(String.t()) :: map()
+  def ensure(owner) do
+    case Repo.get(FarmRecord, owner) do
+      nil ->
+        %FarmRecord{owner: owner, tomatoes: 0} |> Repo.insert!()
+        broadcast_change(owner)
+
+      _farm ->
+        :ok
+    end
+
+    view(owner)
+  end
+
+  @spec has_farm?(String.t()) :: boolean()
+  def has_farm?(owner), do: Repo.exists?(from(f in FarmRecord, where: f.owner == ^owner))
+
+  @spec view(String.t()) :: map() | nil
+  def view(owner) do
+    case Repo.get(FarmRecord, owner) do
+      nil ->
+        nil
+
+      farm ->
+        %{
+          owner: owner,
+          tiles: tiles(owner),
+          tomatoes: farm.tomatoes,
+          inventory: Inventory.load(farm),
+          brewery: brewery_view(farm)
+        }
+    end
+  end
+
+  @spec summaries() :: [map()]
+  def summaries do
+    Repo.all(from(f in FarmRecord, preload: [:tiles], order_by: f.owner))
+    |> Enum.map(&summary/1)
+  end
+
+  @spec action(String.t(), map()) :: {:ok, map()} | {:error, String.t()}
+  def action(owner, action) do
+    case normalize(action) do
+      {:ok, kind, x, y, crop} -> run(owner, kind, x, y, crop)
+      :error -> {:error, "invalid action"}
+    end
+  end
+
+  @spec sell_tomatoes(String.t(), integer()) :: {:ok, map()} | {:error, String.t()}
+  def sell_tomatoes(owner, count) when is_integer(count) and count > 0 do
+    case Repo.get(FarmRecord, owner) do
+      %FarmRecord{tomatoes: tomatoes} = farm when tomatoes >= count ->
+        farm
+        |> Ecto.Changeset.change(tomatoes: tomatoes - count)
+        |> Repo.update!()
+
+        broadcast_change(owner)
+        {:ok, view(owner)}
+
+      %FarmRecord{} ->
+        {:error, "not enough tomatoes"}
+
+      nil ->
+        {:error, "farm not found"}
+    end
+  end
+
+  def sell_tomatoes(_owner, _count), do: {:error, "invalid count"}
+
+  @spec tick(integer()) :: [String.t()]
+  def tick(now \\ System.system_time(:millisecond)) do
+    ready =
+      Repo.all(
+        from(t in Tile,
+          where: t.state == :watered and not is_nil(t.ready_at) and t.ready_at <= ^now
+        )
+      )
+
+    owners = ready |> Enum.map(& &1.owner) |> Enum.uniq() |> Enum.sort()
+    Enum.each(ready, &Repo.update!(Ecto.Changeset.change(&1, state: :ready)))
+    Enum.each(owners, &broadcast_farm/1)
+    if owners != [], do: broadcast_lobby()
+    owners
+  end
+
+  @spec reset() :: :ok
+  def reset do
+    Repo.delete_all(Tile)
+    Repo.delete_all(FarmRecord)
+    :ok
+  end
+
+  @doc "Broadcasts a farm and the lobby after an out-of-store change."
+  @spec broadcast_change(String.t()) :: :ok
+  def broadcast_change(owner) do
+    broadcast_farm(owner)
+    broadcast_lobby()
+  end
+
+  defp run(owner, kind, x, y, crop) do
+    if Farm.in_bounds?(x, y) do
+      apply_action(owner, kind, x, y, crop)
+    else
+      {:error, "out of bounds"}
+    end
+  end
+
+  defp apply_action(owner, kind, x, y, crop) do
+    case Repo.transaction(fn -> mutate(owner, kind, x, y, crop) end) do
+      {:ok, :ok} ->
+        broadcast_change(owner)
+        {:ok, view(owner)}
+
+      {:ok, {:error, reason}} ->
+        {:error, reason}
+
+      {:error, _reason} ->
+        {:error, "could not update farm"}
+    end
+  end
+
+  defp mutate(owner, :till, x, y, _crop) do
+    case tile_at(owner, x, y) do
+      nil ->
+        %Tile{}
+        |> Tile.changeset(%{owner: owner, x: x, y: y, state: :tilled, crop: "tomato"})
+        |> Repo.insert!()
+
+        :ok
+
+      _tile ->
+        {:error, "tile is already tilled"}
+    end
+  end
+
+  defp mutate(owner, kind, x, y, crop) do
+    case tile_at(owner, x, y) do
+      nil -> {:error, "no tilled tile here"}
+      tile -> transform(owner, tile, kind, crop)
+    end
+  end
+
+  defp transform(_owner, tile, :plant, crop) do
+    with {:ok, planted} <- Farm.plant(tile, now_ms(), crop) do
+      update_tile(planted)
+    end
+  end
+
+  defp transform(owner, tile, :water, _crop) do
+    grow_ms = Brewery.growth_ms(tile.crop, effects_for(owner), now_ms())
+
+    with {:ok, watered} <- Farm.water(tile, now_ms(), grow_ms) do
+      update_tile(watered)
+    end
+  end
+
+  defp transform(owner, tile, :harvest, _crop) do
+    yield = Brewery.harvest_yield(tile.crop, effects_for(owner), now_ms())
+
+    with {:ok, harvested} <- Farm.harvest(tile) do
+      update_tile(harvested)
+      add_crop(owner, tile.crop, yield)
+    end
+  end
+
+  defp update_tile(changed) do
+    Ecto.Changeset.change(changed, %{
+      state: changed.state,
+      crop: changed.crop,
+      planted_at: changed.planted_at,
+      watered_at: changed.watered_at,
+      ready_at: changed.ready_at
+    })
+    |> Repo.update!()
+
+    :ok
+  end
+
+  defp add_crop(owner, crop, amount) do
+    farm = Repo.get!(FarmRecord, owner)
+    inv = Inventory.load(farm) |> Inventory.add(crop, amount)
+    apply_inventory(farm, inv)
+    :ok
+  end
+
+  defp apply_inventory(farm, inv) do
+    farm |> Ecto.Changeset.change(Inventory.attrs(inv)) |> Repo.update!()
+  end
+
+  defp effects_for(owner) do
+    case Repo.get(FarmRecord, owner) do
+      nil -> %{}
+      farm -> farm |> Inventory.load_brewery() |> Map.get("effects", %{})
+    end
+  end
+
+  @kinds %{"till" => :till, "plant" => :plant, "water" => :water, "harvest" => :harvest}
+
+  defp normalize(action) when is_map(action) do
+    kind = kind_of(fetch(action, "kind"))
+    x = to_integer(fetch(action, "x"))
+    y = to_integer(fetch(action, "y"))
+    crop = crop_of(fetch(action, "crop"))
+
+    if kind && is_integer(x) && is_integer(y) && crop do
+      {:ok, kind, x, y, crop}
+    else
+      :error
+    end
+  end
+
+  defp normalize(_action), do: :error
+
+  defp kind_of(value) when is_binary(value), do: Map.get(@kinds, value)
+  defp kind_of(_value), do: nil
+
+  defp crop_of(nil), do: "tomato"
+  defp crop_of(value) when is_binary(value), do: if(Crops.known?(value), do: value, else: nil)
+  defp crop_of(_value), do: nil
+
+  defp fetch(map, key), do: Map.get(map, key) || Map.get(map, String.to_atom(key))
+  defp to_integer(value) when is_integer(value), do: value
+  defp to_integer(value) when is_binary(value), do: safe_to_integer(value)
+  defp to_integer(_value), do: nil
+
+  defp safe_to_integer(value) do
+    case Integer.parse(value) do
+      {int, ""} -> int
+      _ -> nil
+    end
+  end
+
+  defp tile_at(owner, x, y) do
+    Repo.one(from(t in Tile, where: t.owner == ^owner and t.x == ^x and t.y == ^y))
+  end
+
+  defp tiles(owner) do
+    from(t in Tile, where: t.owner == ^owner, order_by: [t.x, t.y])
+    |> Repo.all()
+    |> Enum.map(&tile_view/1)
+  end
+
+  defp tile_view(tile) do
+    %{
+      x: tile.x,
+      y: tile.y,
+      state: tile.state,
+      crop: tile.crop,
+      cropId: tile.crop,
+      planted_at: tile.planted_at,
+      watered_at: tile.watered_at,
+      ready_at: tile.ready_at
+    }
+  end
+
+  defp brewery_view(farm) do
+    brewery = Inventory.load_brewery(farm)
+    effects = Brewery.prune_effects(brewery["effects"] || %{}, now_ms())
+
+    %{
+      built: brewery["built"] == true,
+      effects: Enum.map(effects, fn {kind, expires} -> %{kind: kind, expiresAt: expires} end)
+    }
+  end
+
+  defp summary(farm) do
+    counts = Enum.frequencies_by(farm.tiles, & &1.state)
+
+    %{
+      owner: farm.owner,
+      tiles: length(farm.tiles),
+      planted: Map.get(counts, :planted, 0),
+      watered: Map.get(counts, :watered, 0),
+      ready: Map.get(counts, :ready, 0),
+      tomatoes: farm.tomatoes
+    }
+  end
+
+  defp broadcast_farm(owner) do
+    GrangeWeb.Endpoint.broadcast("farm:" <> owner, "farmUpdate", %{farm: view(owner)})
+  end
+
+  defp broadcast_lobby do
+    GrangeWeb.Endpoint.broadcast(@lobby_topic, "farms", %{farms: summaries()})
+  end
+
+  defp now_ms, do: System.system_time(:millisecond)
+end

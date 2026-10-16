@@ -1,32 +1,46 @@
 import * as ex from "excalibur";
 import type { PropKey, TerrainKey } from "./mapData";
 
-const image = (path: string) =>
-	new ex.ImageSource(`/assets/farm/${path}`, {
+export const image = (path: string) =>
+	new ex.ImageSource(`/assets/${path}`, {
 		filtering: ex.ImageFiltering.Pixel,
 	});
 
-export const terrainImage = image("terrain.webp");
+export const terrainImage = image("farm/terrain.webp");
+export const trainImage = image("transport/starter-train.webp");
 
-export const propImages: Record<PropKey, ex.ImageSource> = {
-	farmhouse: image("buildings/farmhouse.webp"),
-	barn: image("buildings/barn.webp"),
-	"oak-tree": image("plants/oak-tree.webp"),
-	"pine-tree": image("plants/pine-tree.webp"),
-	"apple-tree": image("plants/apple-tree.webp"),
-	well: image("objects/well.webp"),
-	bench: image("objects/bench.webp"),
-	sign: image("objects/sign.webp"),
-	barrel: image("objects/barrel.webp"),
-	crate: image("objects/crate.webp"),
-	"fence-horizontal": image("objects/fence-horizontal.webp"),
-	"fence-post": image("objects/fence-post.webp"),
-	daisies: image("plants/daisies.webp"),
-	marigolds: image("plants/marigolds.webp"),
-	"blue-flowers": image("plants/blue-flowers.webp"),
+export const sproutImage = image("farm/plants/sprout.webp");
+export const tomatoPlantImage = image("farm/plants/tomato-plant.webp");
+
+export const cropImages = {
+	sprout: sproutImage,
+	"tomato-plant": tomatoPlantImage,
 };
 
-export const resources = [terrainImage, ...Object.values(propImages)];
+export const propImages: Record<PropKey, ex.ImageSource> = {
+	farmhouse: image("farm/buildings/farmhouse.webp"),
+	barn: image("farm/buildings/barn.webp"),
+	"oak-tree": image("farm/plants/oak-tree.webp"),
+	"pine-tree": image("farm/plants/pine-tree.webp"),
+	"apple-tree": image("farm/plants/apple-tree.webp"),
+	well: image("farm/objects/well.webp"),
+	bench: image("farm/objects/bench.webp"),
+	sign: image("farm/objects/sign.webp"),
+	barrel: image("farm/objects/barrel.webp"),
+	crate: image("farm/objects/crate.webp"),
+	"fence-horizontal": image("farm/objects/fence-horizontal.webp"),
+	"fence-post": image("farm/objects/fence-post.webp"),
+	daisies: image("farm/plants/daisies.webp"),
+	marigolds: image("farm/plants/marigolds.webp"),
+	"blue-flowers": image("farm/plants/blue-flowers.webp"),
+	"starter-train": trainImage,
+};
+
+export const resources = [
+	terrainImage,
+	...Object.values(propImages),
+	...Object.values(cropImages),
+];
 
 export const terrainFrames: Record<
 	TerrainKey,

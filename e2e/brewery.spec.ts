@@ -1,57 +1,46 @@
 import { expect, test } from "@playwright/test";
 import { register, resetServer, uniqueName } from "./helpers";
 
-test("a farmer can till, plant, water, and shop at the market", async ({
+test("the market sells materials and seeds through the server", async ({
 	page,
 }) => {
 	await resetServer();
 	await register(page, uniqueName("Brewer"));
 
-	const hud = page.getByTestId("farm-hud");
-	await expect(hud).toBeVisible();
-	await expect(hud).toContainText("Coins 100");
+	await expect(page.getByTestId("farm-hud")).toBeVisible();
+	await page.getByTestId("open-shop").click();
 
-	// Till an empty plot.
-	await page.getByRole("button", { name: "till", exact: true }).click();
-	await page.getByTestId("farm-cell-0-0").click();
-	await expect(page.getByTestId("farm-cell-0-0")).toHaveAttribute(
-		"title",
-		/tilled soil/i,
-	);
+	const shop = page.getByTestId("farm-shop");
+	await expect(shop).toBeVisible();
+	await expect(shop).toContainText("Coins 100");
 
-	// Plant a tomato, then water it.
-	await page.getByRole("button", { name: "plant", exact: true }).click();
-	await page.getByTestId("farm-cell-0-0").click();
-	await expect(page.getByTestId("farm-cell-0-0")).toHaveAttribute(
-		"title",
-		/planted seed/i,
-	);
-
-	await page.getByRole("button", { name: "water", exact: true }).click();
-	await page.getByTestId("farm-cell-0-0").click();
-	await expect(page.getByTestId("farm-cell-0-0")).toHaveAttribute(
-		"title",
-		/watered/i,
-	);
-
-	// The market sells materials for grangecoins.
-	await expect(page.getByTestId("market-panel")).toBeVisible();
-	await page.getByRole("button", { name: /^Wood/ }).click();
-	await expect(hud).toContainText("Wood 1");
+	// The market tab is open by default. Buy one wood and confirm the server
+	// broadcast the new inventory back to the panel.
+	const wood = page.getByRole("button", { name: /^Wood/ });
+	await wood.click();
+	await expect(wood).toContainText(/have 1\b/);
 });
 
-test("the brewery can be built and a potion brewed", async ({ page }) => {
+test("the brewery can be funded, built, and brewed in", async ({ page }) => {
 	await resetServer();
 	await register(page, uniqueName("Master"));
 
-	const hud = page.getByTestId("farm-hud");
-	await expect(hud).toBeVisible();
+	await page.getByTestId("open-shop").click();
+	const shop = page.getByTestId("farm-shop");
+	await expect(shop).toBeVisible();
 
-	// Fund the build: 10 wood and 8 stone (25 coins are left for the cost).
+	// Fund the build: 10 wood and 8 stone (25 coins remain for the cost).
 	const wood = page.getByRole("button", { name: /^Wood/ });
-	for (let i = 0; i < 10; i += 1) await wood.click();
+	for (let i = 1; i <= 10; i += 1) {
+		await wood.click();
+		await expect(wood).toContainText(new RegExp(`have ${i}\\b`));
+	}
+
 	const stone = page.getByRole("button", { name: /^Stone/ });
-	for (let i = 0; i < 8; i += 1) await stone.click();
+	for (let i = 1; i <= 8; i += 1) {
+		await stone.click();
+		await expect(stone).toContainText(new RegExp(`have ${i}\\b`));
+	}
 
 	await page.getByRole("button", { name: "brewery", exact: true }).click();
 	await page.getByTestId("build-brewery").click();

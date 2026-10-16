@@ -5,8 +5,9 @@ import { useGameStore } from "../store";
 import { CROP_ORDER, cropName } from "./farmUi";
 
 export default function BarPanel() {
-	const inv = useGameStore((s) => s.farm?.inventory);
-	if (!inv) return null;
+	const farm = useGameStore((s) => s.activeFarm);
+	const inv = farm?.inventory;
+	if (!farm || !inv) return null;
 
 	return (
 		<div className="farm-panel" data-testid="bar-panel">
@@ -23,7 +24,7 @@ export default function BarPanel() {
 						type="button"
 						className="farm-buy"
 						disabled={inv.potions[id] <= 0}
-						onClick={() => emitSellPotion(id)}
+						onClick={() => emitSellPotion(farm.owner, id)}
 					>
 						{POTIONS[id].name} · {POTIONS[id].barPrice}c
 						<span className="farm-have">have {inv.potions[id]}</span>
@@ -39,7 +40,7 @@ export default function BarPanel() {
 						type="button"
 						className="farm-buy"
 						disabled={inv[crop] <= 0}
-						onClick={() => emitSellCrop(crop)}
+						onClick={() => emitSellCrop(farm.owner, crop)}
 					>
 						{cropName(crop)} · {CROPS[crop].cropPrice}c
 						<span className="farm-have">have {inv[crop]}</span>

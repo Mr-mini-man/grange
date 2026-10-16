@@ -11,3 +11,12 @@ playwright-report
 .env.*.local
 *.sqlite
 *.sqlite3
+*.sqlite3-*
+
+# Elixir / Mix
+backend/_build
+backend/deps
+backend/priv/static
+backend/*.tar
+backend/.elixir_ls
+erl_crash.dump

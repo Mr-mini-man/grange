@@ -108,7 +108,6 @@ export interface FarmView {
 		built: boolean;
 		effects: ActiveEffect[];
 	};
-	now: number;
 }
 
 export interface FarmReadyTile {

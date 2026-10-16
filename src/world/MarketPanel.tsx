@@ -5,8 +5,9 @@ import { useGameStore } from "../store";
 import { CROP_ORDER, cropName } from "./farmUi";
 
 export default function MarketPanel() {
-	const inv = useGameStore((s) => s.farm?.inventory);
-	if (!inv) return null;
+	const farm = useGameStore((s) => s.activeFarm);
+	const inv = farm?.inventory;
+	if (!farm || !inv) return null;
 
 	return (
 		<div className="farm-panel" data-testid="market-panel">
@@ -22,7 +23,7 @@ export default function MarketPanel() {
 						key={id}
 						type="button"
 						className="farm-buy"
-						onClick={() => emitBuyMaterial(id)}
+						onClick={() => emitBuyMaterial(farm.owner, id)}
 					>
 						{MATERIALS[id].name} · {MATERIALS[id].price}c
 						<span className="farm-have">have {inv[id]}</span>
@@ -37,12 +38,10 @@ export default function MarketPanel() {
 						key={crop}
 						type="button"
 						className="farm-buy"
-						onClick={() => emitBuySeed(crop)}
+						onClick={() => emitBuySeed(farm.owner, crop)}
 					>
 						{cropName(crop)} seed · {CROPS[crop].seedPrice}c
-						<span className="farm-have">
-							have {inv[CROPS[crop].seedKey]}
-						</span>
+						<span className="farm-have">have {inv[CROPS[crop].seedKey]}</span>
 					</button>
 				))}
 			</div>

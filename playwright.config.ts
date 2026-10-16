@@ -1,23 +1,23 @@
 import { defineConfig } from "@playwright/test";
 
+const PORT = process.env.E2E_PORT ?? "3201";
+const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
+
 export default defineConfig({
 	testDir: "e2e",
 	fullyParallel: false,
 	workers: 1,
 	timeout: 60_000,
 	use: {
-		baseURL: "http://localhost:3000",
+		baseURL: BASE_URL,
 	},
 	webServer: {
-		// Invoke vite-node directly instead of `pnpm dev`. pnpm runs the
-		// script in its own process group, so Playwright's process-group kill
-		// on teardown misses the server and esbuild; they keep the inherited
-		// stdout/stderr pipes open and Playwright hangs forever waiting for
-		// `close`. Running the binary directly keeps everything in the group
-		// Playwright kills.
-		command: "node_modules/.bin/vite-node server/index.ts",
-		url: "http://localhost:3000",
+		// Phoenix serves the built SPA (from backend/priv/static), so e2e
+		// exercises the real production request path with no Vite involved.
+		command: "node scripts/run-mix.mjs phx.server",
+		url: BASE_URL,
 		reuseExistingServer: true,
-		env: { PORT: "3000" },
+		timeout: 120_000,
+		env: { PORT, MIX_ENV: "dev" },
 	},
 });

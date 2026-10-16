@@ -10,7 +10,7 @@ Establish the skeletal UI for the main gameplay view. The design must be minimal
 
 ### Main Menu Framework
 **Description:**
-Build the title screen layout. The UI should be heavily weighted to the left side to allow the background art (run-down farm and train) to remain visible.
+Build the title screen layout. The UI should be heavily weighted to the left side to allow the background art (run-down farm and train) to remain visible. The font is retro style pixelated off to the left, With a distinct outline to stand out against the background.
 
 **Acceptance Criteria:**
 -  **Top Left:** Display the Grange game logo.
@@ -21,6 +21,7 @@ Build the title screen layout. The UI should be heavily weighted to the left sid
   - Settings
   - Quit to Desktop
 -  **Bottom Right:** Display the game version number and class team watermark.
+-  -  **Top Right:** Login button that takes you to the screen to login, if already signed in says username and a log out option.
 
 ### Pause Menu Overlay
 **Description:**
@@ -41,6 +42,6 @@ Create the pause menu overlay triggered by the `[Esc]` key.
 Design the physical inventory UI where players manage seeds, tools, and Grangecoin.
 
 **Acceptance Criteria:**
--  **Left Column:** Render a 3D visual preview of the player model showing currently equipped gear/clothing.
+-  **Left Column:** Render a 2D visual preview of the player model showing currently equipped gear/clothing.
 -  **Center/Right Area:** Implement a standard grid of square inventory slots.
--  **Currency Logic:** Configure Grangecoin to function as a physical, stackable item occupying standard inventory slots rather than utilizing a fixed, persistent UI counter.
+-  **Currency Logic:** Grangecoin is a persistent wallet counter (not a physical, stackable inventory item). The balance is shown in the bottom-right HUD cluster alongside the keyboard prompts, and the inventory screen mirrors it in the player preview.
