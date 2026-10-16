@@ -1,8 +1,8 @@
 import { Route, Routes } from "react-router-dom";
 import Dashboard from "./routes/Dashboard";
 import ForgotPassword from "./routes/ForgotPassword";
-import Game from "./routes/Game";
 import Login from "./routes/Login";
+import MainMenu from "./routes/MainMenu";
 import RequireAuth from "./routes/RequireAuth";
 import ResetPassword from "./routes/ResetPassword";
 import VerifyEmail from "./routes/VerifyEmail";
@@ -11,7 +11,8 @@ import FarmMap from "./world/FarmMap";
 export default function App() {
 	return (
 		<Routes>
-			<Route path="/" element={<Login />} />
+			<Route path="/" element={<MainMenu />} />
+			<Route path="/login" element={<Login />} />
 			<Route path="/verify" element={<VerifyEmail />} />
 			<Route path="/forgot" element={<ForgotPassword />} />
 			<Route path="/reset" element={<ResetPassword />} />
@@ -24,18 +25,18 @@ export default function App() {
 				}
 			/>
 			<Route
-				path="/dashboard"
+				path="/farms/:owner"
 				element={
 					<RequireAuth>
-						<Dashboard />
+						<FarmMap />
 					</RequireAuth>
 				}
 			/>
 			<Route
-				path="/games/:uuid"
+				path="/dashboard"
 				element={
 					<RequireAuth>
-						<Game />
+						<Dashboard />
 					</RequireAuth>
 				}
 			/>

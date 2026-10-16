@@ -1,6 +1,8 @@
 [tools]
 nodejs = "24"
 pnpm = "11"
+erlang = "latest"
+elixir = "latest"
 
 [tasks.start]
 run = "pnpm start"

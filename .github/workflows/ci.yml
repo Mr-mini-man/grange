@@ -12,9 +12,15 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Erlang/Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          elixir-version: "1.20"
 
       - uses: pnpm/action-setup@v4
         with:
@@ -25,8 +31,25 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Install dependencies
+      - name: Cache Elixir deps and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            backend/deps
+            backend/_build
+          key: ${{ runner.os }}-mix-${{ hashFiles('backend/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Install Elixir dependencies
+        working-directory: backend
+        run: mix deps.get
+
+      - name: Lint Elixir (format + credo)
+        run: pnpm lint:backend
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4

@@ -1,32 +1,20 @@
 [Unit]
 Description=Grange game server
-Documentation=https://github.com/psu-cs4140/grange
+Documentation=https://github.com/NatTuck/grange
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 WorkingDirectory=/home/grange/grange
-Environment=NODE_ENV=production
 Environment=PORT=3200
-Environment=PATH=%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
-# Session/auth config. This file lives outside the repo, so nothing here is
-# committed: %h/.config/grange/env with lines like
-#   SESSION_TTL_DAYS=30
-#   RESET_KEY=<random>
-#   APP_URL=https://grange.homework.quest
-#   MAILJET_API_KEY=<key>
-#   MAILJET_API_SECRET=<secret>
-#   MAIL_FROM_EMAIL=no-reply@grange.homework.quest
-#   MAIL_FROM_NAME=Grange
-# Production requires the Mailjet values: the server refuses to start without
-# them rather than silently dropping verification email.
-EnvironmentFile=-%h/.config/grange/env
-ExecStart=%h/.local/share/mise/shims/pnpm start
+Environment=RELEASE_DISTRIBUTION=none
+EnvironmentFile=-/home/grange/grange.env
+ExecStart=/home/grange/grange/bin/grange start
 Restart=on-failure
 RestartSec=3
 KillSignal=SIGTERM
-TimeoutStopSec=10
+TimeoutStopSec=15
 
 [Install]
 WantedBy=default.target

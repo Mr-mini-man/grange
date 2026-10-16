@@ -1,105 +1,53 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { resendVerification, verifyEmail } from "../auth";
-import AuthCard, {
-	buttonClass,
-	inputClass,
-	labelClass,
-} from "../components/AuthCard";
+import { verifyEmail } from "../auth";
 
-type Status = "working" | "error" | "idle";
-
+/**
+ * Lands here from the emailed verification link. A successful verify starts a
+ * session, so the user is sent to the main menu signed in.
+ */
 export default function VerifyEmail() {
 	const [params] = useSearchParams();
 	const token = params.get("token") ?? "";
+	const [status, setStatus] = useState("Verifying your email…");
 	const navigate = useNavigate();
-	const [status, setStatus] = useState<Status>(token ? "working" : "idle");
-	const [error, setError] = useState("");
-	const [email, setEmail] = useState("");
-	const [resent, setResent] = useState(false);
-	const [busy, setBusy] = useState(false);
-	// The token is single-use, and StrictMode runs effects twice on mount, so
-	// the ref guarantees exactly one request per page load.
-	const attempted = useRef(false);
 
 	useEffect(() => {
-		if (!token || attempted.current) return;
-		attempted.current = true;
-		verifyEmail(token)
-			.then((res) => {
-				if (res.ok && res.user) {
-					navigate("/world");
-					return;
-				}
-				setStatus("error");
-				setError(res.error ?? "verification failed");
-			})
-			.catch(() => {
-				setStatus("error");
-				setError("Could not reach the server");
-			});
+		if (!token) {
+			setStatus("This verification link is invalid or expired.");
+			return;
+		}
+
+		let live = true;
+		verifyEmail(token).then((res) => {
+			if (!live) return;
+			if (res.ok) {
+				navigate("/", { replace: true });
+			} else {
+				setStatus(res.error ?? "This verification link is invalid or expired.");
+			}
+		});
+		return () => {
+			live = false;
+		};
 	}, [token, navigate]);
 
-	async function resend(e: React.FormEvent) {
-		e.preventDefault();
-		if (busy) return;
-		setBusy(true);
-		setResent(false);
-		try {
-			await resendVerification(email.trim());
-			setResent(true);
-		} finally {
-			setBusy(false);
-		}
-	}
-
 	return (
-		<AuthCard subtitle="EMAIL VERIFICATION">
-			{status === "working" && (
-				<p data-testid="verify-status" className="text-center text-sm text-leaf">
-					Verifying your email…
-				</p>
-			)}
-
-			{status === "error" && (
-				<p data-testid="verify-status" className="mb-4 text-center text-sm text-pumpkin">
-					{error}
-				</p>
-			)}
-
-			{status !== "working" && (
-				<form onSubmit={resend} className="flex flex-col gap-4">
-					<p className="text-center text-sm text-cream">
-						Enter your email and we'll send a fresh verification link.
-					</p>
-					<label className={labelClass}>
-						Email
-						<input
-							data-testid="resend-email"
-							type="email"
-							autoComplete="email"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							className={inputClass}
-						/>
-					</label>
-					<button type="submit" disabled={busy} className={buttonClass}>
-						Resend Verification
-					</button>
-					{resent && (
-						<p data-testid="resend-status" className="text-center text-sm text-leaf">
-							If that account exists and is unverified, a new link is on its way.
-						</p>
-					)}
-				</form>
-			)}
-
+		<div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
 			<Link
 				to="/"
-				className="mt-4 block text-center text-xs tracking-wider text-husk underline-offset-2 hover:text-leaf hover:underline"
+				className="text-xs tracking-widest text-husk underline-offset-2 hover:text-leaf hover:underline"
 			>
-				Back to sign in
+				Back to main menu
 			</Link>
-		</AuthCard>
+			<div className="w-full max-w-sm rounded-lg border border-plum/40 bg-barn p-8 ember-glow text-plum">
+				<h1 className="mb-4 text-center text-2xl text-barn-red ember-text">
+					Verify Email
+				</h1>
+				<p data-testid="verify-status" className="text-center text-sm text-cream">
+					{status}
+				</p>
+			</div>
+		</div>
 	);
 }

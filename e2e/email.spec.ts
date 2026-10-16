@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
 	BASE,
 	mailboxFor,
-	register,
+	registerAccount,
 	resetServer,
 	tokenFrom,
 	uniqueName,
@@ -15,7 +15,7 @@ test("an unverified account cannot sign in until the email is verified", async (
 	const name = uniqueName("Sprout");
 	const email = `${name}@example.test`;
 
-	await page.goto(BASE);
+	await page.goto(`${BASE}/login`);
 	await page.getByTestId("toggle-mode").click();
 	await page.getByTestId("username").fill(name);
 	await page.getByTestId("email").fill(email);
@@ -23,16 +23,20 @@ test("an unverified account cannot sign in until the email is verified", async (
 	await page.getByRole("button", { name: /Create Account/i }).click();
 	await expect(page.getByTestId("auth-notice")).toBeVisible();
 
+	// Sign-in is refused until the address is confirmed.
+	await page.getByTestId("toggle-mode").click();
 	await page.getByTestId("username").fill(name);
 	await page.getByTestId("password").fill("harvest-please");
 	await page.getByRole("button", { name: /Sign In/i }).click();
 	await expect(page.getByTestId("auth-error")).toContainText(/verify/i);
 	await expect(page.getByTestId("resend-link")).toBeVisible();
-	await expect(page).toHaveURL(`${BASE}/`);
+	await expect(page).toHaveURL(`${BASE}/login`);
 
+	// The emailed link both verifies and signs the user in.
 	const token = tokenFrom(await mailboxFor(email), "/verify");
 	await page.goto(`${BASE}/verify?token=${encodeURIComponent(token)}`);
-	await page.waitForURL("**/world");
+	await page.waitForURL(`${BASE}/`);
+	await expect(page.getByTestId("menu-user")).toContainText(name);
 });
 
 test("a verification link can only be used once", async ({ page }) => {
@@ -40,7 +44,7 @@ test("a verification link can only be used once", async ({ page }) => {
 	const name = uniqueName("Sprout");
 	const email = `${name}@example.test`;
 
-	await page.goto(BASE);
+	await page.goto(`${BASE}/login`);
 	await page.getByTestId("toggle-mode").click();
 	await page.getByTestId("username").fill(name);
 	await page.getByTestId("email").fill(email);
@@ -51,9 +55,9 @@ test("a verification link can only be used once", async ({ page }) => {
 	const token = tokenFrom(await mailboxFor(email), "/verify");
 	const url = `${BASE}/verify?token=${encodeURIComponent(token)}`;
 	await page.goto(url);
-	await page.waitForURL("**/world");
+	await page.waitForURL(`${BASE}/`);
 
-	await page.getByTestId("logout").click();
+	await page.getByTestId("menu-logout").click();
 	await page.waitForURL(`${BASE}/`);
 	await page.goto(url);
 	await expect(page.getByTestId("verify-status")).toContainText(
@@ -67,10 +71,12 @@ test("a forgotten password can be reset through the emailed link", async ({
 	await resetServer();
 	const name = uniqueName("Sprout");
 	const email = `${name}@example.test`;
-	await register(page, name);
+	await registerAccount(page, name);
 
-	await page.getByTestId("logout").click();
+	await page.getByTestId("menu-logout").click();
 	await page.waitForURL(`${BASE}/`);
+	await page.getByTestId("menu-login").click();
+	await page.waitForURL("**/login");
 	await page.getByTestId("forgot-link").click();
 	await page.waitForURL("**/forgot");
 
@@ -82,11 +88,13 @@ test("a forgotten password can be reset through the emailed link", async ({
 	await page.goto(`${BASE}/reset?token=${encodeURIComponent(token)}`);
 	await page.getByTestId("reset-password").fill("brand-new-pass");
 	await page.getByTestId("reset-submit").click();
-	await expect(page.getByTestId("reset-status")).toBeVisible();
+	await expect(page.getByTestId("reset-status")).toContainText(/updated/i);
 
-	await page.goto(BASE);
+	// The new password signs in; the old one no longer does.
+	await page.goto(`${BASE}/login`);
 	await page.getByTestId("username").fill(name);
 	await page.getByTestId("password").fill("brand-new-pass");
 	await page.getByRole("button", { name: /Sign In/i }).click();
-	await page.waitForURL("**/world");
+	await page.waitForURL(`${BASE}/`);
+	await expect(page.getByTestId("menu-user")).toContainText(name);
 });

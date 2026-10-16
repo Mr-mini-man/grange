@@ -1,45 +1,35 @@
 import { create } from "zustand";
-import type { Game, GameEvent, GameSummary, Player } from "../shared/types";
+import type { FarmToolId } from "../shared/farm";
 import type { AuthUser } from "../shared/auth";
-import type { FarmView } from "../shared/farm";
+import type { ActiveFarm, FarmSummary, Player } from "../shared/types";
 
 interface GameStore {
 	user: AuthUser | null;
 	username: string;
 	players: Player[];
-	games: GameSummary[];
-	myGameId: string | null;
-	activeGame: Game | null;
-	pendingEvents: GameEvent[] | null;
-	farm: FarmView | null;
+	farms: FarmSummary[];
+	activeFarm: ActiveFarm | null;
+	tool: FarmToolId;
 	setUser: (user: AuthUser) => void;
 	clearUser: () => void;
 	setPlayers: (players: Player[]) => void;
-	setGames: (games: GameSummary[]) => void;
-	setMyGameId: (gameId: string | null) => void;
-	setActiveGame: (game: Game | null, events?: GameEvent[] | null) => void;
-	clearEvents: () => void;
-	setFarm: (farm: FarmView | null) => void;
+	setFarms: (farms: FarmSummary[]) => void;
+	setActiveFarm: (farm: ActiveFarm | null) => void;
+	setTool: (tool: FarmToolId) => void;
 }
 
 export const useGameStore = create<GameStore>((set) => ({
 	user: null,
-	// Derived from the session, never persisted. The card-game screens still
-	// read `username`; it is empty until a session is resolved.
+	// Derived from the session, never persisted.
 	username: "",
 	players: [],
-	games: [],
-	myGameId: null,
-	activeGame: null,
-	pendingEvents: null,
-	farm: null,
+	farms: [],
+	activeFarm: null,
+	tool: "hoe",
 	setUser: (user) => set({ user, username: user.username }),
-	clearUser: () => set({ user: null, username: "" }),
+	clearUser: () => set({ user: null, username: "", activeFarm: null }),
 	setPlayers: (players) => set({ players }),
-	setGames: (games) => set({ games }),
-	setMyGameId: (myGameId) => set({ myGameId }),
-	setActiveGame: (activeGame, pendingEvents = null) =>
-		set({ activeGame, pendingEvents }),
-	clearEvents: () => set({ pendingEvents: null }),
-	setFarm: (farm) => set({ farm }),
+	setFarms: (farms) => set({ farms }),
+	setActiveFarm: (activeFarm) => set({ activeFarm }),
+	setTool: (tool) => set({ tool }),
 }));

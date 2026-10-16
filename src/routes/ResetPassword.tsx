@@ -1,49 +1,53 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { resetPassword } from "../auth";
-import AuthCard, {
-	buttonClass,
-	inputClass,
-	labelClass,
-} from "../components/AuthCard";
 
+const inputClass =
+	"rounded border border-leaf/40 bg-barn-deep px-3 py-2 text-cream outline-none transition focus:border-leaf focus:ember-border text-leaf";
+const labelClass = "flex flex-col gap-1 text-sm text-cream";
+
+/** Completes a password reset with the token from the emailed link. */
 export default function ResetPassword() {
 	const [params] = useSearchParams();
 	const token = params.get("token") ?? "";
 	const [password, setPassword] = useState("");
-	const [error, setError] = useState("");
-	const [done, setDone] = useState(false);
+	const [status, setStatus] = useState("");
 	const [busy, setBusy] = useState(false);
 
 	async function submit(e: React.FormEvent) {
 		e.preventDefault();
 		if (busy) return;
 		setBusy(true);
-		setError("");
+		setStatus("");
 		try {
 			const res = await resetPassword(token, password);
-			if (res.ok) {
-				setDone(true);
-				return;
-			}
-			setError(res.error ?? "reset failed");
+			setStatus(
+				res.ok
+					? "Password updated. You can sign in now."
+					: (res.error ?? "Could not reset the password."),
+			);
 		} catch {
-			setError("Could not reach the server");
+			setStatus("Could not reach the server");
 		} finally {
 			setBusy(false);
 		}
 	}
 
 	return (
-		<AuthCard subtitle="RESET PASSWORD">
-			{done ? (
-				<p data-testid="reset-status" className="text-center text-sm text-leaf">
-					Password updated. You can sign in now.
-				</p>
-			) : (
+		<div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
+			<Link
+				to="/login"
+				className="text-xs tracking-widest text-husk underline-offset-2 hover:text-leaf hover:underline"
+			>
+				Back to sign in
+			</Link>
+			<div className="w-full max-w-sm rounded-lg border border-plum/40 bg-barn p-8 ember-glow text-plum">
+				<h1 className="mb-4 text-center text-2xl text-barn-red ember-text">
+					Choose a New Password
+				</h1>
 				<form onSubmit={submit} className="flex flex-col gap-4">
 					<label className={labelClass}>
-						New Password
+						New password
 						<input
 							data-testid="reset-password"
 							type="password"
@@ -57,24 +61,17 @@ export default function ResetPassword() {
 						type="submit"
 						data-testid="reset-submit"
 						disabled={busy}
-						className={buttonClass}
+						className="rounded border border-barn-red/60 bg-barn-red/10 px-4 py-2 font-display text-sm font-bold uppercase tracking-wider text-barn-red transition hover:bg-barn-red/20 ember-glow disabled:opacity-50"
 					>
-						Set New Password
+						Update password
 					</button>
-					{error && (
-						<p data-testid="reset-error" className="text-center text-sm text-pumpkin">
-							{error}
-						</p>
-					)}
 				</form>
-			)}
-
-			<Link
-				to="/"
-				className="mt-4 block text-center text-xs tracking-wider text-husk underline-offset-2 hover:text-leaf hover:underline"
-			>
-				Back to sign in
-			</Link>
-		</AuthCard>
+				{status && (
+					<p data-testid="reset-status" className="mt-4 text-center text-sm text-leaf">
+						{status}
+					</p>
+				)}
+			</div>
+		</div>
 	);
 }

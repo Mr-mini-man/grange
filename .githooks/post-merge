@@ -1,0 +1,4 @@
+#!/bin/sh
+# Download dependencies after a merge or `git pull` when a lockfile changed.
+# scripts/bootstrap.mjs is a no-op when everything is already installed.
+node scripts/bootstrap.mjs --hook || true

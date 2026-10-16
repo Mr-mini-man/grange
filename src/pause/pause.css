@@ -1,0 +1,107 @@
+.pause-backdrop {
+	position: absolute;
+	inset: 0;
+	z-index: 40;
+	display: grid;
+	place-items: center;
+	padding: 1rem;
+	background: rgba(10, 7, 4, 0.55);
+	backdrop-filter: blur(3px);
+	pointer-events: auto;
+}
+
+.pause-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	width: min(20rem, 100%);
+	padding: 1.5rem;
+	border: 1px solid rgba(58, 44, 30, 0.6);
+	border-radius: 0.75rem;
+	background: rgba(38, 28, 20, 0.96);
+	color: #f4e8d0;
+	box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+
+.pause-title {
+	margin: 0;
+	text-align: center;
+	font-size: 1.75rem;
+	color: #d64541;
+}
+
+.pause-user {
+	margin: 0;
+	text-align: center;
+	font-size: 0.75rem;
+	letter-spacing: 0.04em;
+	color: #9a8b72;
+}
+
+.pause-user-name {
+	color: #a7c957;
+}
+
+.pause-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+}
+
+/* Floating-text buttons (Terraria style): outlined yellow text, no box. */
+.pause-button {
+	appearance: none;
+	background: none;
+	border: none;
+	padding: 0.35rem 0.2rem;
+	margin: 0;
+	color: #f0c040;
+	font-family: var(--font-display);
+	font-size: 1.15rem;
+	text-align: left;
+	letter-spacing: 0.05em;
+	cursor: pointer;
+	text-shadow:
+		2px 2px 0 #17110a,
+		-1px -1px 0 #17110a,
+		0 3px 6px rgba(0, 0, 0, 0.65);
+	transition: color 110ms ease, transform 110ms ease, text-shadow 110ms ease;
+}
+
+.pause-button:hover,
+.pause-button:focus-visible {
+	color: #ffe680;
+	transform: translateX(8px) scale(1.03);
+	text-shadow:
+		0 0 12px rgba(240, 192, 64, 0.85),
+		2px 2px 0 #17110a,
+		-1px -1px 0 #17110a;
+	outline: 2px solid rgba(240, 192, 64, 0.55);
+	outline-offset: 5px;
+}
+
+.pause-button-danger:hover,
+.pause-button-danger:focus-visible {
+	color: #ff8a86;
+	text-shadow:
+		0 0 12px rgba(214, 69, 65, 0.85),
+		2px 2px 0 #17110a,
+		-1px -1px 0 #17110a;
+	outline-color: rgba(214, 69, 65, 0.55);
+}
+
+.pause-note {
+	margin: 0;
+	text-align: center;
+	font-size: 0.72rem;
+	color: #e07a1f;
+}
+
+.pause-hint {
+	margin: 0;
+	text-align: center;
+	font-size: 0.65rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #9a8b72;
+}

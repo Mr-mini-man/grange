@@ -1,15 +1,19 @@
 import type { AuthUser } from "../shared/auth";
-import { rebindAuth } from "./socket";
+import { economy } from "./world/EconomyManager";
+import { rebindAuth, setAuthToken } from "./socket";
 import { useGameStore } from "./store";
 
 export interface AuthResponse {
 	ok: boolean;
 	error?: string;
+	/** Machine-readable reason for some failures, e.g. "unverified". */
 	code?: string;
+	/** Registration succeeded but the account still needs email verification. */
 	pending?: boolean;
 	emailSent?: boolean;
 	message?: string;
 	user?: AuthUser;
+	token?: string;
 }
 
 async function post(
@@ -28,12 +32,37 @@ async function post(
 function accept(data: AuthResponse): AuthResponse {
 	if (data.ok && data.user) {
 		useGameStore.getState().setUser(data.user);
+		// The account owns the balance; adopt it so a fresh account starts at
+		// the opening amount instead of inheriting the previous session's total.
+		economy.setBalance(data.user.balance);
+		setAuthToken(data.token ?? null);
 		rebindAuth();
 	}
 	return data;
 }
 
-/** Creates an account. No session is issued until the emailed link is used. */
+/**
+ * Mirrors a balance change to the signed-in account. Best-effort: local play
+ * continues even if the request fails, and it is re-synced on next auth.
+ */
+export async function saveBalanceDelta(delta: number): Promise<void> {
+	if (!Number.isFinite(delta) || delta === 0) return;
+	try {
+		await fetch("/api/economy/transaction", {
+			method: "POST",
+			credentials: "same-origin",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ delta }),
+		});
+	} catch {
+		// Ignore: a dropped sync must not break local gameplay.
+	}
+}
+
+/**
+ * Creates an account. No session is issued: the account stays locked until the
+ * emailed verification link is opened.
+ */
 export async function register(input: {
 	username: string;
 	email: string;
@@ -52,6 +81,7 @@ export async function login(input: {
 export async function logout(): Promise<void> {
 	await post("/logout", {});
 	useGameStore.getState().clearUser();
+	setAuthToken(null);
 	rebindAuth();
 }
 
@@ -82,9 +112,16 @@ export async function fetchMe(): Promise<AuthUser | null> {
 	const res = await fetch("/api/auth/me", { credentials: "same-origin" });
 	if (!res.ok) {
 		useGameStore.getState().clearUser();
+		setAuthToken(null);
 		return null;
 	}
-	const { user } = (await res.json()) as { user: AuthUser };
+	const { user, token } = (await res.json()) as {
+		user: AuthUser;
+		token: string;
+	};
 	useGameStore.getState().setUser(user);
+	economy.setBalance(user.balance);
+	setAuthToken(token);
+	rebindAuth();
 	return user;
 }

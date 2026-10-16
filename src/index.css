@@ -2,9 +2,8 @@
 
 @import "@fontsource/rye/400.css";
 
-/* Single source of truth for the farm/harvest palette. Konva reads these
-   at runtime via getPalette() in src/theme.ts; Tailwind's @theme references
-   them below so both share the exact same values. */
+/* Single source of truth for the farm/harvest palette. Tailwind's @theme
+   references these below so utilities share the exact same values. */
 :root {
 	--soil: #17110a;
 	--barn: #2a1c11;
