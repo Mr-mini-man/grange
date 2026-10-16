@@ -236,7 +236,7 @@ defmodule Grange.FarmStore do
 
   defp transform(_owner, tile, :plant, crop) do
     with {:ok, planted} <- Farm.plant(tile, now_ms(), crop) do
-      update_tile(planted)
+      update_tile(tile, planted)
     end
   end
 
@@ -244,7 +244,7 @@ defmodule Grange.FarmStore do
     grow_ms = Brewery.growth_ms(tile.crop, effects_for(owner), now_ms())
 
     with {:ok, watered} <- Farm.water(tile, now_ms(), grow_ms) do
-      update_tile(watered)
+      update_tile(tile, watered)
     end
   end
 
@@ -252,13 +252,14 @@ defmodule Grange.FarmStore do
     yield = Brewery.harvest_yield(tile.crop, effects_for(owner), now_ms())
 
     with {:ok, harvested} <- Farm.harvest(tile) do
-      update_tile(harvested)
+      update_tile(tile, harvested)
       add_crop(owner, tile.crop, yield)
     end
   end
 
-  defp update_tile(changed) do
-    Ecto.Changeset.change(changed, %{
+  defp update_tile(tile, changed) do
+    tile
+    |> Ecto.Changeset.change(%{
       state: changed.state,
       crop: changed.crop,
       planted_at: changed.planted_at,

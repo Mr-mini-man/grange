@@ -22,7 +22,7 @@ defmodule Grange.BreweryTest do
 
   test "can_build? requires the full material and coin cost" do
     cost = Brewery.brewery_cost()
-    inv = Inventory.default()
+    inv = Map.put(Inventory.default(), "coins", 0)
     refute Brewery.can_build?(inv)
 
     stocked =

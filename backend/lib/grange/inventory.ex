@@ -74,7 +74,9 @@ defmodule Grange.Inventory do
   @doc "Adds `amount` to a potion count."
   @spec add_potion(map(), String.t(), integer()) :: map()
   def add_potion(inv, id, amount) do
-    Map.update(inv, "potions", %{id => amount}, &Map.update(&1, id, amount, 0))
+    Map.update(inv, "potions", %{id => amount}, fn potions ->
+      Map.update(potions, id, amount, fn current -> current + amount end)
+    end)
   end
 
   defp merge_defaults(nil), do: @default
