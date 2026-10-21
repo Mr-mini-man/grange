@@ -1,3 +1,5 @@
+import { type CropId, isCropId } from "./crops";
+
 export const FARM_GRID_SIZE = 15;
 export const FARM_GROW_MS = 10_000;
 export const FARM_HARVEST_YIELD = 3;
@@ -6,115 +8,44 @@ export type FarmTileState = "tilled" | "planted" | "watered" | "ready";
 
 export type FarmToolId = "hoe" | "seed" | "bucket" | "scythe";
 
-/** Every crop a player can grow. Crops are the raw input to the brewery. */
-export type CropId = "tomato" | "wheat" | "potato" | "barley";
-
-export type SeedKey = `${CropId}Seed`;
-
-export interface CropInfo {
-	name: string;
-	seedKey: SeedKey;
-	/** Base time from watering to harvest, before growth effects. */
-	growMs: number;
-	/** Units produced by a single harvest. */
-	yield: number;
-	/** Grangecoins charged by the market for one seed. */
-	seedPrice: number;
-	/** Grangecoins the bar pays for one harvested crop. */
-	cropPrice: number;
-}
-
-export const CROPS: Record<CropId, CropInfo> = {
-	tomato: {
-		name: "Tomato",
-		seedKey: "tomatoSeed",
-		growMs: FARM_GROW_MS,
-		yield: FARM_HARVEST_YIELD,
-		seedPrice: 2,
-		cropPrice: 1,
-	},
-	wheat: {
-		name: "Wheat",
-		seedKey: "wheatSeed",
-		growMs: 12_000,
-		yield: 4,
-		seedPrice: 2,
-		cropPrice: 1,
-	},
-	potato: {
-		name: "Potato",
-		seedKey: "potatoSeed",
-		growMs: 15_000,
-		yield: 3,
-		seedPrice: 3,
-		cropPrice: 2,
-	},
-	barley: {
-		name: "Barley",
-		seedKey: "barleySeed",
-		growMs: 18_000,
-		yield: 3,
-		seedPrice: 3,
-		cropPrice: 2,
-	},
-};
-
-export const CROP_IDS = Object.keys(CROPS) as CropId[];
-
-/** Resources bought from the main land to build and run the brewery. */
-export type MaterialId = "wood" | "stone";
-
-/** Potions brewed from crops; each grants a timed player effect. */
-export type PotionId = "greenThumb" | "swiftSip" | "luckyDraught";
-
-export type EffectKind = "growth" | "speed" | "luck";
-
-export interface ActiveEffect {
-	kind: EffectKind;
-	/** Unix ms at which the effect lapses. */
-	expiresAt: number;
-}
-
 export interface FarmTile {
 	x: number;
 	y: number;
 	state: FarmTileState;
 	cropId: CropId;
+	/** Harvests left before a regrowing crop clears; defaults per crop. */
+	harvestsRemaining?: number;
+	/** Stage a regrowing crop resumes from after a harvest. */
+	regrowFrom?: number;
 	plantedAt?: number;
 	wateredAt?: number;
 	readyAt?: number;
 }
 
 export interface FarmInventory {
-	coins: number;
-	wood: number;
-	stone: number;
 	tomatoSeed: number;
 	tomato: number;
-	wheatSeed: number;
-	wheat: number;
-	potatoSeed: number;
-	potato: number;
-	barleySeed: number;
-	barley: number;
-	potions: Record<PotionId, number>;
-}
-
-/** A snapshot of one player's farm, brewery, and purse for the client. */
-export interface FarmView {
-	tiles: FarmTile[];
-	inventory: FarmInventory;
-	brewery: {
-		built: boolean;
-		effects: ActiveEffect[];
-	};
-	now: number;
 }
 
 export interface FarmReadyTile {
 	player: string;
 	x: number;
 	y: number;
+}
+
+/** The four orthogonal neighbour offsets (N, S, E, W). */
+export const ORTHOGONAL_OFFSETS: ReadonlyArray<readonly [number, number]> = [
+	[0, -1],
+	[0, 1],
+	[1, 0],
+	[-1, 0],
+];
+
+export function orthogonalNeighbors(
+	x: number,
+	y: number,
+): Array<{ x: number; y: number }> {
+	return ORTHOGONAL_OFFSETS.map(([dx, dy]) => ({ x: x + dx, y: y + dy }));
 }
 
 export function isFarmInBounds(
@@ -134,4 +65,24 @@ export function isFarmInBounds(
 
 export function farmTileKey(x: number, y: number): string {
 	return `${x},${y}`;
+}
+
+/**
+ * Encodes a crop plus its remaining-harvest count into the single `crop`
+ * string the backend already stores, so regrowth survives without a schema
+ * change. A count of 1 (the default) is omitted.
+ */
+export function encodeCrop(cropId: CropId, harvestsRemaining: number): string {
+	return harvestsRemaining > 1 ? `${cropId}:${harvestsRemaining}` : cropId;
+}
+
+export function decodeCrop(crop: string | undefined): {
+	cropId: CropId;
+	harvestsRemaining: number;
+} {
+	const [rawId, rawCount] = (crop ?? "tomato").split(":");
+	const cropId = isCropId(rawId) ? rawId : "tomato";
+	const parsed = Number.parseInt(rawCount ?? "1", 10);
+	const harvestsRemaining = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+	return { cropId, harvestsRemaining };
 }

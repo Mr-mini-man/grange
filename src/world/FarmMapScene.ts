@@ -1,60 +1,63 @@
 import * as ex from "excalibur";
-import type { FarmTileState, FarmToolId } from "../../shared/farm";
-import { isFarmInBounds } from "../../shared/farm";
-import { emitFarmAction } from "../socket";
+import { type FarmToolId, isFarmInBounds } from "../../shared/farm";
 import { useGameStore } from "../store";
 import { isInventoryBlockingInput } from "../inventory/inventoryStore";
 import { BlockRegistry } from "./blocking";
+import { ComboController } from "./farmCombo";
+import { useComboStore } from "./comboStore";
 import { CropLayer } from "./cropLayer";
 import { FenceLayer } from "./fenceRendering";
 import { actOnFence, selectedFarmItem } from "./fenceActions";
+import { performFarmAction } from "./farmActionRunner";
 import { handleFarmPropClick } from "./farmPropActions";
 import { FarmPropLayer } from "./farmPropLayer";
 import { FarmTravel } from "./FarmTravel";
 import { addFarmerGraphics, updateFarmerGraphics } from "./farmerSprite";
 import type { FarmHoveredTile, FarmHudSnapshot } from "./farmHud";
-import { TOOL_HINTS, TOOL_KIND } from "./farmTools";
+import { TOOL_HINTS } from "./farmTools";
+import { FarmTileSync } from "./farmSceneTiles";
 import { InputManager } from "./InputManager";
 import {
 	FARM_PLAYER_SPAWN,
-	isTillableTile,
 	MAP_COLUMNS,
 	MAP_HEIGHT,
 	MAP_ROWS,
 	MAP_WIDTH,
+	props,
 	TILE_SIZE,
 	terrainAt,
 } from "./mapData";
 import { updateFarmPlayer } from "./playerMovement";
-import { actOnPlayerFarmTile, consumeSeedAt } from "./playerFarmAction";
 import { terrainFrames, terrainImage } from "./resources";
-import { refreshTile } from "./tileSync";
-import type { WorldArea } from "./WalkingScene";
+import { SweepFx } from "./sweepFx";
+import { findTrainRest, TrainController } from "./train";
+import type { SceneActivationData, WorldArea } from "./WalkingScene";
 
-export class FarmMapScene extends ex.Scene {
+const FARM_TOOLS = ["hoe", "seed-bag", "watering-can", "scythe"];
+
+export class FarmMapScene extends ex.Scene<SceneActivationData> {
 	onFarmUpdate: ((snapshot: FarmHudSnapshot) => void) | null = null;
 
 	private inputManager!: InputManager;
 	private player!: ex.Actor;
-
 	private sheet!: ex.SpriteSheet;
 	private terrain!: ex.TileMap;
+	private tileSync!: FarmTileSync;
 	private readonly crops = new CropLayer(this);
-	// Growable tool-blocked tiles, including the live placed-fence layer.
+	private readonly sweepFx = new SweepFx(this);
+	private readonly combo = new ComboController();
 	private readonly blocks = new BlockRegistry();
 	private readonly fences = new FenceLayer(this, this.blocks);
 	private readonly farmProps = new FarmPropLayer(this, this.blocks);
 
-	// Last server tile states by field key, so only changed map tiles refresh.
-	private readonly synced = new Map<string, FarmTileState>();
 	private painting = false;
 	private readonly strokeTiles = new Set<string>();
 	private message = TOOL_HINTS.hoe;
 	private hovered: FarmHoveredTile | null = null;
 	private lastWorldPos: ex.Vector | null = null;
 	private deactivated = false;
-	private lastTomatoes = -1;
 	private readonly travel: FarmTravel;
+	private train!: TrainController;
 
 	constructor(
 		private readonly owner: string,
@@ -68,11 +71,8 @@ export class FarmMapScene extends ex.Scene {
 
 	override onInitialize(engine: ex.Engine): void {
 		this.backgroundColor = ex.Color.fromHex("#79a44d");
-
-		// 1. Initialize standalone input listener
 		this.inputManager = new InputManager();
 
-		// 2. Build Terrain TileMap
 		this.sheet = ex.SpriteSheet.fromImageSource({
 			image: terrainImage,
 			grid: {
@@ -102,9 +102,18 @@ export class FarmMapScene extends ex.Scene {
 		}
 		this.add(this.terrain);
 
-		// 3. Populate saved farm props and their collision/tool footprints.
+		this.tileSync = new FarmTileSync({
+			terrain: this.terrain,
+			sheet: this.sheet,
+			crops: this.crops,
+		});
+
+		// Populate saved farm props and their collision/tool footprints.
 		this.farmProps.set(useGameStore.getState().activeFarm?.prop_overrides ?? []);
 		this.fences.set(useGameStore.getState().activeFarm?.fences ?? []);
+
+		// The train is animated separately from the static prop layer.
+		this.train = new TrainController(findTrainRest(props), this);
 
 		// 4. Create Player Actor
 		this.player = new ex.Actor({
@@ -117,13 +126,11 @@ export class FarmMapScene extends ex.Scene {
 		addFarmerGraphics(this.player);
 		this.add(this.player);
 
-		// 5. Tool input: click or drag to act on field tiles via the server
 		const pointers = engine.input.pointers;
 		pointers.primary.on("down", (evt) => {
 			if (this.deactivated || isInventoryBlockingInput()) return;
 			const item = selectedFarmItem();
-			this.painting = item === "hoe" || item === "seed-bag" ||
-				item === "watering-can" || item === "scythe";
+			this.painting = FARM_TOOLS.includes(item ?? "");
 			this.strokeTiles.clear();
 			this.applyToolAt(evt.worldPos);
 		});
@@ -137,7 +144,6 @@ export class FarmMapScene extends ex.Scene {
 			this.strokeTiles.clear();
 		});
 
-		// Center camera initially
 		this.camera.pos = ex.vec(MAP_WIDTH / 2, MAP_HEIGHT / 2);
 		this.message = TOOL_HINTS[useGameStore.getState().tool] ?? this.message;
 		this.emitHud();
@@ -149,53 +155,76 @@ export class FarmMapScene extends ex.Scene {
 		this.emitHud();
 	}
 
-	override onActivate(): void {
+	/** The hotbar reports a slot change so the combo tracker grants its grace. */
+	noteHotbarSwap(): void {
+		this.combo.noteHotbarSwap();
+	}
+
+	override onActivate(
+		context: ex.SceneActivationContext<SceneActivationData>,
+	): void {
 		if (this.deactivated) this.inputManager = new InputManager();
 		this.deactivated = false;
 		this.travel.activate();
+		this.train.reset(context.data?.trainArriving ?? false);
 	}
 
 	override onPreUpdate(engine: ex.Engine, delta: number): void {
-		// Freeze movement while the inventory modal captures input.
-		if (isInventoryBlockingInput()) {
+		this.train.update(delta);
+		this.player.graphics.visible = this.train.isParked();
+		this.farmProps.set(useGameStore.getState().activeFarm?.prop_overrides ?? []);
+		this.fences.set(useGameStore.getState().activeFarm?.fences ?? []);
+
+		// Freeze and hide the player while the inventory modal captures input,
+		// or while the train carries them in or out.
+		if (isInventoryBlockingInput() || !this.train.isParked()) {
 			this.player.vel = ex.vec(0, 0);
 			updateFarmerGraphics(this.player, { x: 0, y: 0 });
 			return;
 		}
 
-		// Poll input vector (normalized -1 to 1)
 		const dir = this.inputManager.getMovementVector();
-
-		updateFarmPlayer(this.player, dir, delta);
+		updateFarmPlayer(this.player, dir, delta, this.combo.moveSpeed);
 		updateFarmerGraphics(this.player, dir);
 
-		this.travel.update(this.player, this.inputManager, engine);
+		this.travel.update(this.player, this.inputManager, engine, this.train);
 
-		if (this.isOwner && this.inputManager.consumePressed("Space")) {
-			actOnPlayerFarmTile(this.owner, this.player.pos.x, this.player.pos.y,
-				(message) => { this.message = message; this.emitHud(); });
-		}
+		this.handleToolKeys();
 		this.syncTilesFromServer();
-		this.farmProps.set(useGameStore.getState().activeFarm?.prop_overrides ?? []);
-		this.fences.set(useGameStore.getState().activeFarm?.fences ?? []);
+		this.tileSync.syncGrowing(useGameStore.getState().activeFarm, Date.now());
+		this.sweepFx.update(delta);
+		this.combo.update();
 	}
 
 	override onDeactivate(): void {
-		// Clean up DOM listeners when scene changes or unmounts
 		this.deactivated = true;
 		this.painting = false;
 		this.inputManager?.destroy();
 		this.travel.deactivate();
+		useComboStore.getState().clearCombo();
+	}
+
+	private handleToolKeys(): void {
+		if (!this.isOwner) return;
+		if (!FARM_TOOLS.includes(selectedFarmItem() ?? "")) return;
+		if (this.inputManager.consumePressed("Space")) this.actOnPlayerTile();
+	}
+
+	private actOnPlayerTile(): void {
+		const column = Math.floor(this.player.pos.x / TILE_SIZE);
+		const row = Math.floor(this.player.pos.y / TILE_SIZE);
+		if (!isFarmInBounds(column, row)) return;
+		this.performAction(column, row);
 	}
 
 	private applyToolAt(worldPos: ex.Vector): void {
 		const column = Math.floor(worldPos.x / TILE_SIZE);
 		const row = Math.floor(worldPos.y / TILE_SIZE);
+		this.updateHover(worldPos);
 		if (column < 0 || row < 0 || column >= MAP_COLUMNS || row >= MAP_ROWS)
 			return;
 
 		const strokeKey = `${column},${row}`;
-		this.updateHover(worldPos);
 		if (this.strokeTiles.has(strokeKey)) return;
 		this.strokeTiles.add(strokeKey);
 
@@ -206,102 +235,58 @@ export class FarmMapScene extends ex.Scene {
 		}
 
 		const item = selectedFarmItem();
-		if (handleFarmPropClick(item, worldPos, this.farmProps,
-			useGameStore.getState().activeFarm, this.owner, this.player.pos,
-			(message) => { this.message = message; this.emitHud(); })) return;
+		if (
+			handleFarmPropClick(
+				item,
+				worldPos,
+				this.farmProps,
+				useGameStore.getState().activeFarm,
+				this.owner,
+				this.player.pos,
+				(message) => this.report(message),
+			)
+		)
+			return;
+
 		if (item === "fence" || item === "shovel") {
-			actOnFence(this.owner, column, row, item, this.blocks, this.player.pos, (message) => {
-				this.message = message;
-				this.emitHud();
-			});
+			actOnFence(this.owner, column, row, item, this.blocks, this.player.pos, (message) =>
+				this.report(message),
+			);
 			return;
 		}
 		if (!item) {
-			this.message = "Select a tool or item first.";
-			this.emitHud();
+			this.report("Select a tool or item first.");
 			return;
 		}
 
 		if (this.blocks.isBlocked(column, row)) {
-			this.message = "Something is in the way.";
-			this.emitHud();
+			this.report("Something is in the way.");
 			return;
 		}
-
-		const tool = useGameStore.getState().tool;
-		if (tool === "hoe") {
-			if (!isTillableTile(column, row)) {
-				this.message = "Hoe only works on grass.";
-				this.emitHud();
-				return;
-			}
-			if (!isFarmInBounds(column, row)) {
-				this.message = "Too far out to farm.";
-				this.emitHud();
-				return;
-			}
-		} else if (!isFarmInBounds(column, row)) {
-			this.message = "Too far out to farm.";
-			this.emitHud();
+		if (!isFarmInBounds(column, row)) {
+			this.report("Too far out to farm.");
 			return;
 		}
+		this.performAction(column, row);
+	}
 
-		if (tool === "seed" && !consumeSeedAt(column, row,
-			(message) => { this.message = message; this.emitHud(); })) return;
-
-		emitFarmAction(this.owner, {
-			kind: TOOL_KIND[tool],
-			x: column,
-			y: row,
+	private performAction(column: number, row: number): void {
+		performFarmAction(this.owner, this.combo, this.sweepFx, column, row, {
+			message: (text) => this.report(text),
+			shake: () => this.camera.shake(2, 2, 180),
 		});
 	}
 
-	/** Reconciles server tiles into terrain + crop visuals. Server tiles use
-	 * map coordinates directly so open-map hoeing (blocking, decor, hover)
-	 * keeps working against the Phoenix backend. */
+	private report(text: string): void {
+		this.message = text;
+		this.emitHud();
+	}
+
 	private syncTilesFromServer(): void {
-		const farm = useGameStore.getState().activeFarm;
-		const live = new Set<string>();
-		let changed = false;
-
-		if (farm) {
-			for (const tile of farm.tiles) {
-				const key = `${tile.x},${tile.y}`;
-				live.add(key);
-				if (this.synced.get(key) === tile.state) continue;
-				this.synced.set(key, tile.state);
-				refreshTile(
-					this.terrain,
-					this.sheet,
-					this.crops,
-					tile.x,
-					tile.y,
-					tile.state,
-				);
-				changed = true;
-			}
-			if (farm.tomatoes !== this.lastTomatoes) {
-				this.lastTomatoes = farm.tomatoes;
-				changed = true;
-			}
-		}
-
-		for (const key of [...this.synced.keys()]) {
-			if (!live.has(key)) {
-				const [fx, fy] = key.split(",").map(Number);
-				refreshTile(this.terrain, this.sheet, this.crops, fx, fy, undefined);
-				this.synced.delete(key);
-				changed = true;
-			}
-		}
-
-		if (changed) {
-			// The hover readout snapshots tile state, so recompute it after
-			// server flips or it would keep showing a stale state until the
-			// next pointer move.
-			if (this.lastWorldPos) this.updateHover(this.lastWorldPos);
-			else this.emitHud();
-		}
+		const changed = this.tileSync.sync(useGameStore.getState().activeFarm);
+		if (!changed) return;
+		if (this.lastWorldPos) this.updateHover(this.lastWorldPos);
+		else this.emitHud();
 	}
 
 	private updateHover(worldPos: ex.Vector): void {

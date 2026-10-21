@@ -7,6 +7,12 @@ set -euo pipefail
 ENV_FILE="$HOME/grange.env"
 DATA_DIR="$HOME/grange-data"
 PORT="${APP_PORT:-3200}"
+HOST="${APP_HOST:?APP_HOST must be set to the public hostname}"
+
+if [[ ! "$HOST" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+  echo "Invalid APP_HOST: expected a hostname" >&2
+  exit 1
+fi
 
 if [ ! -s "$ENV_FILE" ]; then
   umask 077
@@ -20,6 +26,11 @@ mkdir -p "$DATA_DIR"
 if ! grep -q '^DATABASE_PATH=.' "$ENV_FILE"; then
   printf 'DATABASE_PATH=%s\n' "$DATA_DIR/grange.sqlite3" >> "$ENV_FILE"
 fi
+
+# systemd reads this file on restart. Give each deployment its own public
+# origin so Phoenix accepts WebSocket connections from that site's browser.
+sed -i '/^PHX_HOST=/d' "$ENV_FILE"
+printf 'PHX_HOST=%s\n' "$HOST" >> "$ENV_FILE"
 
 # One-time migration: previous releases kept the database inside the release
 # directory (<release>/data/grange.sqlite3). If the new location is still empty

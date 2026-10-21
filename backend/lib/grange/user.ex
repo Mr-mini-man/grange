@@ -14,6 +14,7 @@ defmodule Grange.User do
     field(:password_hash, :string)
     field(:balance, :integer, default: @starting_balance)
     field(:email_verified_at, :utc_datetime_usec)
+    field(:is_admin, :boolean, default: false)
     timestamps(type: :utc_datetime_usec, updated_at: false)
   end
 
@@ -24,7 +25,8 @@ defmodule Grange.User do
           password_hash: String.t(),
           inserted_at: DateTime.t() | nil,
           balance: non_neg_integer(),
-          email_verified_at: DateTime.t() | nil
+          email_verified_at: DateTime.t() | nil,
+          is_admin: boolean()
         }
 
   @doc "Builds a new (unsaved) user with a generated id and opening balance."
@@ -43,7 +45,7 @@ defmodule Grange.User do
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(user, attrs) do
     user
-    |> cast(attrs, [:username, :email, :password_hash])
+    |> cast(attrs, [:username, :email, :password_hash, :is_admin])
     |> validate_required([:username, :email, :password_hash])
     |> unique_constraint(:username,
       name: :users_username_index,
@@ -69,7 +71,8 @@ defimpl Jason.Encoder, for: Grange.User do
         email: user.email,
         inserted_at: iso8601(user.inserted_at),
         balance: user.balance,
-        emailVerifiedAt: iso8601(user.email_verified_at)
+        emailVerifiedAt: iso8601(user.email_verified_at),
+        is_admin: user.is_admin
       },
       opts
     )

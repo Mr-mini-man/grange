@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { countItem, useInventoryStore } from "./inventoryStore";
+import { ITEMS } from "./items";
 
 beforeEach(() => {
 	useInventoryStore.getState().resetInventory();
@@ -28,6 +29,17 @@ describe("inventory slots", () => {
 		expect(useInventoryStore.getState().hotbar[5]).toMatchObject({ itemId: "fence", count: 0 });
 		store.setItemCount("fence", 19);
 		expect(countItem(useInventoryStore.getState(), "fence")).toBe(19);
+	});
+
+	it("grants every item at max stack for admins", () => {
+		useInventoryStore.getState().grantAllItems();
+		const { hotbar, grid } = useInventoryStore.getState();
+		const filled = [...hotbar, ...grid].filter((s) => s.itemId);
+		const held = new Set(filled.map((s) => s.itemId));
+		expect(held).toEqual(new Set(Object.keys(ITEMS)));
+		for (const slot of filled) {
+			if (slot.itemId) expect(slot.count).toBe(ITEMS[slot.itemId].maxStack);
+		}
 	});
 
 	it("keeps no currency item in slots", () => {

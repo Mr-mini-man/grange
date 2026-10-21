@@ -134,6 +134,14 @@ defmodule Grange.AccountsTest do
     assert decoded["balance"] == 100
   end
 
+  test "new users are not admins, and is_admin is included in JSON" do
+    assert {:ok, user} = register()
+    refute user.is_admin
+
+    decoded = user |> Jason.encode!() |> Jason.decode!()
+    assert decoded["is_admin"] == false
+  end
+
   test "apply_balance_delta spends, earns, and clamps at zero" do
     {:ok, user} = register()
 

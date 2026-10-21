@@ -1,4 +1,5 @@
 import type { AuthUser } from "../shared/auth";
+import { useInventoryStore } from "./inventory/inventoryStore";
 import { economy } from "./world/EconomyManager";
 import { rebindAuth, setAuthToken } from "./socket";
 import { useGameStore } from "./store";
@@ -29,12 +30,21 @@ async function post(
 	return { status: res.status, data: await res.json() };
 }
 
+/**
+ * Admin accounts are handed the full catalog on sign-in. The inventory lives
+ * only in the browser, so this is where "all items" is granted.
+ */
+function applyAdminInventory(user: AuthUser): void {
+	if (user.is_admin) useInventoryStore.getState().grantAllItems();
+}
+
 function accept(data: AuthResponse): AuthResponse {
 	if (data.ok && data.user) {
 		useGameStore.getState().setUser(data.user);
 		// The account owns the balance; adopt it so a fresh account starts at
 		// the opening amount instead of inheriting the previous session's total.
 		economy.setBalance(data.user.balance);
+		applyAdminInventory(data.user);
 		setAuthToken(data.token ?? null);
 		rebindAuth();
 	}
@@ -81,6 +91,8 @@ export async function login(input: {
 export async function logout(): Promise<void> {
 	await post("/logout", {});
 	useGameStore.getState().clearUser();
+	// Drop any admin-granted inventory so it cannot leak to the next sign-in.
+	useInventoryStore.getState().resetInventory();
 	setAuthToken(null);
 	rebindAuth();
 }
@@ -121,6 +133,7 @@ export async function fetchMe(): Promise<AuthUser | null> {
 	};
 	useGameStore.getState().setUser(user);
 	economy.setBalance(user.balance);
+	applyAdminInventory(user);
 	setAuthToken(token);
 	rebindAuth();
 	return user;

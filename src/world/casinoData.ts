@@ -34,6 +34,8 @@ export const CASINO_EXIT = { x: 576, y: 175 } as const;
 export const CASINO_BLACKJACK_TABLE = { x: 576, y: 430 } as const;
 export const CASINO_POKER_TABLE = { x: 205, y: 430 } as const;
 export const CASINO_ROULETTE_TABLE = { x: 947, y: 430 } as const;
+/** Centre of the row of three slot machines along the bottom wall. */
+export const CASINO_SLOT_MACHINES = { x: 235, y: 700 } as const;
 
 export const casinoProps: RenderedProp<CasinoAssetKey>[] = [
 	{ asset: "wall-panel", x: 165, y: 165, width: 300 },

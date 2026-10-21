@@ -40,6 +40,19 @@ function buildInitialHotbar(): InventorySlot[] {
 	return hotbar;
 }
 
+/**
+ * Every item in the game, one stack at its max size. Used for admin accounts,
+ * which are handed the full inventory on sign-in.
+ */
+function buildAdminHotbar(): InventorySlot[] {
+	const order = Object.keys(ITEMS) as ItemId[];
+	const hotbar = Array.from({ length: HOTBAR_SIZE }, emptySlot);
+	order.forEach((itemId, index) => {
+		hotbar[index] = stack(itemId, ITEMS[itemId].maxStack);
+	});
+	return hotbar;
+}
+
 interface InventoryState {
 	grid: InventorySlot[];
 	hotbar: InventorySlot[];
@@ -54,6 +67,7 @@ interface InventoryState {
 	/** Removes up to `count` of an item across slots. Returns how many were removed. */
 	removeItem: (itemId: ItemId, count: number) => number;
 	removeAt: (ref: SlotRef, count: number) => void;
+	grantAllItems: () => void;
 	setItemCount: (itemId: ItemId, count: number) => void;
 	resetInventory: () => void;
 }
@@ -207,6 +221,14 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
 			next <= 0 ? emptySlot() : { itemId: slot.itemId, count: next };
 		set({ grid: nextGrid, hotbar: nextHotbar });
 	},
+
+	grantAllItems: () =>
+		set({
+			grid: Array.from({ length: GRID_SIZE }, emptySlot),
+			hotbar: buildAdminHotbar(),
+			selectedHotbar: 0,
+			inventoryOpen: false,
+		}),
 
 	setItemCount: (itemId, count) => {
 		const state = get();

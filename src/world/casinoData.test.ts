@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { CASINO_EXIT, CASINO_POKER_TABLE, casinoProps } from "./casinoData";
+import {
+	CASINO_EXIT,
+	CASINO_POKER_TABLE,
+	CASINO_SLOT_MACHINES,
+	casinoProps,
+} from "./casinoData";
 import { MAP_HEIGHT, MAP_WIDTH } from "./mapData";
 
 describe("casino interior data", () => {
@@ -27,5 +32,9 @@ describe("casino interior data", () => {
 		expect(CASINO_POKER_TABLE.x).toBeLessThanOrEqual(MAP_WIDTH);
 		expect(CASINO_POKER_TABLE.y).toBeGreaterThanOrEqual(0);
 		expect(CASINO_POKER_TABLE.y).toBeLessThanOrEqual(MAP_HEIGHT);
+		expect(CASINO_SLOT_MACHINES.x).toBeGreaterThanOrEqual(0);
+		expect(CASINO_SLOT_MACHINES.x).toBeLessThanOrEqual(MAP_WIDTH);
+		expect(CASINO_SLOT_MACHINES.y).toBeGreaterThanOrEqual(0);
+		expect(CASINO_SLOT_MACHINES.y).toBeLessThanOrEqual(MAP_HEIGHT);
 	});
 });

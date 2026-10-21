@@ -112,4 +112,38 @@ defmodule Grange.FarmProps do
       x - div(width, 2) >= 0 and x + div(width, 2) <= 1152 and
       y >= 96 and y <= 640
   end
+
+  @doc "Runs a dig/place prop action inside a transaction."
+  @spec action(String.t(), map()) :: {:ok, :ok} | {:error, String.t()}
+  def action(owner, action) when is_map(action) do
+    case Repo.transaction(fn -> run_action(owner, action) end) do
+      {:ok, :ok} -> {:ok, :ok}
+      {:ok, {:error, reason}} -> {:error, reason}
+      {:error, _reason} -> {:error, "could not update object"}
+    end
+  end
+
+  def action(_owner, _action), do: {:error, "invalid prop action"}
+
+  defp run_action(owner, action) do
+    case fetch(action, "kind") do
+      "dig" ->
+        dig(owner, to_integer(fetch(action, "index")))
+
+      "place" ->
+        place(
+          owner,
+          fetch(action, "asset"),
+          to_integer(fetch(action, "x")),
+          to_integer(fetch(action, "y"))
+        )
+
+      _ ->
+        {:error, "invalid prop action"}
+    end
+  end
+
+  defp fetch(map, key), do: Map.get(map, key) || Map.get(map, String.to_atom(key))
+  defp to_integer(value) when is_integer(value), do: value
+  defp to_integer(_value), do: nil
 end

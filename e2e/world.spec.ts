@@ -4,6 +4,8 @@ import {
 	register,
 	resetServer,
 	uniqueName,
+	waitForTrainStop,
+	walkToSeedMarket,
 	walkUntilPrompt,
 } from "./helpers";
 
@@ -71,15 +73,9 @@ test("the marketplace casino opens and returns outside", async ({ page }) => {
 	await expect(prompt).toContainText("travel to the marketplace");
 	await page.keyboard.press("e");
 	await expect(canvas).toHaveAttribute("aria-label", /^Marketplace map/);
+	await waitForTrainStop(page);
 
-	await page.keyboard.down("w");
-	await page.keyboard.down("d");
-	await page.waitForTimeout(2_900);
-	await page.keyboard.up("w");
-	await page.keyboard.up("d");
-	await page.keyboard.down("d");
-	await page.waitForTimeout(1_200);
-	await page.keyboard.up("d");
+	await walkUntilPrompt(page, ["w"], "enter the casino");
 
 	await expect(prompt).toContainText("enter the casino");
 	await page.keyboard.press("e");
@@ -103,12 +99,9 @@ test("the seed market opens a window with a seeds tab", async ({ page }) => {
 	await expect(prompt).toContainText("travel to the marketplace");
 	await page.keyboard.press("e");
 	await expect(canvas).toHaveAttribute("aria-label", /^Marketplace map/);
+	await waitForTrainStop(page);
 
-	await page.keyboard.down("w");
-	await page.keyboard.down("a");
-	await page.waitForTimeout(2_800);
-	await page.keyboard.up("w");
-	await page.keyboard.up("a");
+	await walkToSeedMarket(page);
 
 	await expect(prompt).toContainText("enter the seed market");
 	await page.keyboard.press("e");
@@ -121,13 +114,13 @@ test("the seed market opens a window with a seeds tab", async ({ page }) => {
 		"Tomato Seeds",
 	);
 	await expect(page.getByTestId("market-owned-tomato-seed")).toContainText("10");
-	// The grid has 8 cells; one is filled by the tomato seed card.
-	await expect(page.getByTestId("market-slot")).toHaveCount(7);
+	// The grid has 8 cells; three are filled by the seed cards.
+	await expect(page.getByTestId("market-slot")).toHaveCount(5);
 	await expect(page.getByTestId("farm-balance")).toContainText("100");
 
 	await page.getByTestId("market-action-tomato-seed").click();
-	await expect(page.getByTestId("farm-balance")).toContainText("99");
-	await expect(page.getByTestId("market-owned-tomato-seed")).toContainText("20");
+	await expect(page.getByTestId("farm-balance")).toContainText("92");
+	await expect(page.getByTestId("market-owned-tomato-seed")).toContainText("11");
 
 	await page.keyboard.press("Escape");
 	await expect(market).toHaveCount(0);
@@ -151,13 +144,9 @@ test("the produce market opens sell, tools, and train tabs", async ({
 		"aria-label",
 		/^Marketplace map/,
 	);
+	await waitForTrainStop(page);
 
-	await page.keyboard.down("w");
-	await page.waitForTimeout(2_000);
-	await page.keyboard.up("w");
-	await page.keyboard.down("d");
-	await page.waitForTimeout(1_000);
-	await page.keyboard.up("d");
+	await walkUntilPrompt(page, ["w", "a"], "enter the produce market");
 
 	await expect(prompt).toContainText("enter the produce market");
 	await page.keyboard.press("e");
@@ -168,14 +157,14 @@ test("the produce market opens sell, tools, and train tabs", async ({
 	await expect(page.getByTestId("market-tab-sell")).toBeVisible();
 	await expect(page.getByTestId("market-tab-tools")).toBeVisible();
 	await expect(page.getByTestId("market-tab-train")).toBeVisible();
-	await expect(page.getByTestId("market-item-tomato")).toContainText("Tomatoes");
+	await expect(page.getByTestId("market-item-tomato")).toContainText("Tomato");
 	await expect(page.getByTestId("market-owned-tomato")).toContainText("0");
 	// Nothing harvested yet, so selling is unavailable.
 	await expect(page.getByTestId("market-action-tomato")).toBeDisabled();
 	await expect(page.getByTestId("market-max-tomato")).toBeVisible();
 	await expect(page.getByTestId("market-max-tomato")).toBeDisabled();
-	// The grid has 12 cells; one is filled by the tomato card.
-	await expect(page.getByTestId("market-slot")).toHaveCount(11);
+	// The grid has 12 cells; six are filled by the produce cards.
+	await expect(page.getByTestId("market-slot")).toHaveCount(6);
 
 	await page.getByTestId("market-tab-tools").click();
 	await expect(page.getByTestId("market-slot")).toHaveCount(8);
@@ -206,7 +195,7 @@ test("farm world shows the starting balance HUD", async ({ page }) => {
 	await expect(balance).toContainText("100");
 });
 
-test("selling a chosen number of tomatoes uses the quantity stepper", async ({
+test("selling a harvested tomato credits the wallet", async ({
 	page,
 }) => {
 	await resetServer();
@@ -233,11 +222,16 @@ test("selling a chosen number of tomatoes uses the quantity stepper", async ({
 	await page.keyboard.press("Space");
 	await expect(tile).toContainText("(9, 9): watered");
 
-	// Wait out the 10s growth, then harvest for 3 tomatoes.
+	// Wait out the 10s growth, then harvest for one tomato.
 	await expect(tile).toContainText("(9, 9): ready", { timeout: 20_000 });
 	await page.keyboard.press("4");
 	await page.keyboard.press("Space");
-	await expect(page.getByTestId("farm-tomatoes")).toContainText("3");
+	await expect(page.getByTestId("farm-tomatoes")).toContainText("1");
+	// The harvest lands in the first free hotbar slot.
+	await expect(page.getByTestId("slot-hotbar-4")).toHaveAttribute(
+		"data-count",
+		"1",
+	);
 
 	// Travel to the marketplace and open the produce market.
 	await page.keyboard.down("d");
@@ -248,32 +242,25 @@ test("selling a chosen number of tomatoes uses the quantity stepper", async ({
 		"aria-label",
 		/^Marketplace map/,
 	);
-	await page.keyboard.down("w");
-	await page.waitForTimeout(2_000);
-	await page.keyboard.up("w");
-	await page.keyboard.down("d");
-	await page.waitForTimeout(1_000);
-	await page.keyboard.up("d");
+	await waitForTrainStop(page);
+	await walkUntilPrompt(page, ["w", "a"], "enter the produce market");
 	await page.keyboard.press("e");
 
 	const market = page.getByTestId("market-window");
 	await expect(market).toBeVisible();
-	await expect(page.getByTestId("market-owned-tomato")).toContainText("3");
-
-	// Sell exactly two of them.
-	await page.getByTestId("market-inc-tomato").click();
-	await expect(page.getByTestId("market-qty-tomato")).toHaveValue("2");
-	await page.getByTestId("market-action-tomato").click();
 	await expect(page.getByTestId("market-owned-tomato")).toContainText("1");
-	await expect(page.getByTestId("farm-balance")).toContainText("102");
 
-	// Max fills the stepper with everything left, then sells it.
-	await page.getByTestId("market-max-tomato").click();
-	await expect(page.getByTestId("market-qty-tomato")).toHaveValue("1");
+	// Sell the single tomato for its crop value.
 	await page.getByTestId("market-action-tomato").click();
 	await expect(page.getByTestId("market-owned-tomato")).toContainText("0");
-	await expect(page.getByTestId("farm-balance")).toContainText("103");
+	await expect(page.getByTestId("farm-balance")).toContainText("105");
 	await expect(page.getByTestId("market-action-tomato")).toBeDisabled();
+	// Selling also clears it from the local inventory, so it can't linger.
+	await page.getByTestId("market-close").click();
+	await expect(page.getByTestId("slot-hotbar-4")).toHaveAttribute(
+		"data-count",
+		"0",
+	);
 });
 
 test("balance belongs to the account and starts fresh for a new one", async ({
@@ -316,16 +303,10 @@ test("the blackjack table opens a playable sub-screen", async ({ page }) => {
 	await expect(prompt).toContainText("travel to the marketplace");
 	await page.keyboard.press("e");
 	await expect(canvas).toHaveAttribute("aria-label", /^Marketplace map/);
+	await waitForTrainStop(page);
 
 	// Marketplace -> casino.
-	await page.keyboard.down("w");
-	await page.keyboard.down("d");
-	await page.waitForTimeout(2_900);
-	await page.keyboard.up("w");
-	await page.keyboard.up("d");
-	await page.keyboard.down("d");
-	await page.waitForTimeout(1_200);
-	await page.keyboard.up("d");
+	await walkUntilPrompt(page, ["w"], "enter the casino");
 	await expect(prompt).toContainText("enter the casino");
 	await page.keyboard.press("e");
 	await expect(canvas).toHaveAttribute("aria-label", /^Casino map/);
