@@ -1,3 +1,5 @@
+import { MAX_INTERACTION_DISTANCE } from "./interaction";
+
 export const TILE_SIZE = 64;
 export const MAP_COLUMNS = 18;
 export const MAP_ROWS = 12;
@@ -118,7 +120,8 @@ export function isNearFarmTrain(x: number, y: number): boolean {
 		FARM_TRAIN_STOP.x,
 		Math.min(x, FARM_TRAIN_ENGINE_STOP.x),
 	);
-	return Math.hypot(x - nearestX, y - FARM_TRAIN_STOP.y) <= 115;
+	return Math.hypot(x - nearestX, y - FARM_TRAIN_STOP.y) <=
+		MAX_INTERACTION_DISTANCE;
 }
 
 /** Edit these rules to redraw the 64px terrain grid. */

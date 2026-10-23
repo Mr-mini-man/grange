@@ -50,9 +50,9 @@ const marketplaceFootprints: Partial<
 const casinoFootprints: Partial<Record<CasinoAssetKey, PropFootprint>> = {
 	"wall-panel": { width: 1, depth: 45 },
 	"wall-post": { width: 0.8, depth: 55 },
-	"poker-table": { width: 0.9, depth: 90 },
-	"blackjack-table": { width: 0.9, depth: 90 },
-	"roulette-table": { width: 0.9, depth: 90 },
+	"poker-table": { width: 0.9, depth: 70 },
+	"blackjack-table": { width: 0.9, depth: 70 },
+	"roulette-table": { width: 0.9, depth: 70 },
 	"chair-front-left": { width: 0.8, depth: 40 },
 	"chair-front-right": { width: 0.8, depth: 40 },
 	"slot-machine": { width: 0.85, depth: 55 },

@@ -16,6 +16,7 @@ import { addFarmerGraphics, updateFarmerGraphics } from "./farmerSprite";
 import type { FarmHoveredTile, FarmHudSnapshot } from "./farmHud";
 import { TOOL_HINTS } from "./farmTools";
 import { FarmTileSync } from "./farmSceneTiles";
+import { withinInteractionRange } from "./interaction";
 import { InputManager } from "./InputManager";
 import {
 	FARM_PLAYER_SPAWN,
@@ -54,6 +55,7 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 	private readonly strokeTiles = new Set<string>();
 	private message = TOOL_HINTS.hoe;
 	private hovered: FarmHoveredTile | null = null;
+	private hudPlayer = { x: Number.NaN, y: Number.NaN };
 	private lastWorldPos: ex.Vector | null = null;
 	private deactivated = false;
 	private readonly travel: FarmTravel;
@@ -187,6 +189,14 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 		updateFarmPlayer(this.player, dir, delta, this.combo.moveSpeed);
 		updateFarmerGraphics(this.player, dir);
 
+		if (
+			Math.abs(this.player.pos.x - this.hudPlayer.x) >= 8 ||
+			Math.abs(this.player.pos.y - this.hudPlayer.y) >= 8
+		) {
+			this.hudPlayer = { x: this.player.pos.x, y: this.player.pos.y };
+			this.emitHud();
+		}
+
 		this.travel.update(this.player, this.inputManager, engine, this.train);
 
 		this.handleToolKeys();
@@ -223,6 +233,11 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 		this.updateHover(worldPos);
 		if (column < 0 || row < 0 || column >= MAP_COLUMNS || row >= MAP_ROWS)
 			return;
+
+		if (!withinInteractionRange(this.player.pos, worldPos)) {
+			this.report("Too far away to reach that.");
+			return;
+		}
 
 		const strokeKey = `${column},${row}`;
 		if (this.strokeTiles.has(strokeKey)) return;
@@ -313,6 +328,7 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 			tomatoes: farm?.tomatoes ?? 0,
 			message: this.message,
 			hovered: this.hovered,
+			player: { x: this.player.pos.x, y: this.player.pos.y },
 		});
 	}
 }

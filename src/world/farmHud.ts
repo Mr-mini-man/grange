@@ -8,4 +8,5 @@ export interface FarmHudSnapshot {
 	tomatoes: number;
 	message: string;
 	hovered: FarmHoveredTile | null;
+	player: { x: number; y: number };
 }

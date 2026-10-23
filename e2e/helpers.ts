@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
-import { MAP_COLUMNS, MAP_ROWS } from "../src/world/mapData";
+import { MAX_INTERACTION_DISTANCE } from "../src/world/interaction";
+import { MAP_COLUMNS, MAP_ROWS, TILE_SIZE } from "../src/world/mapData";
 
 export const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3201";
 
@@ -185,13 +186,60 @@ export async function hoverFarmTile(
 	await page.mouse.move(x, y);
 }
 
-/** Clicks the center of a farm map tile. */
+/**
+ * Walks the player until it stands within `tolerance` px of a world point.
+ * Tools only reach `MAX_INTERACTION_DISTANCE` now, so click-driven farm tests
+ * must stand beside their target first. The player's world position is
+ * published by the scene as data attributes on the farm page, so the helper
+ * polls the real position rather than guessing key-hold durations. It also
+ * gives up once the player is inside interaction range but stalled against
+ * scenery, which is as close as a blocked tile allows.
+ */
+export async function movePlayerNear(
+	page: Page,
+	worldX: number,
+	worldY: number,
+	tolerance = 40,
+	{ reach = MAX_INTERACTION_DISTANCE, timeout = 15_000 } = {},
+): Promise<void> {
+	const world = page.locator(".farm-map-page");
+	const deadline = Date.now() + timeout;
+	let previous = Number.POSITIVE_INFINITY;
+	let stalled = 0;
+	for (;;) {
+		const x = Number(await world.getAttribute("data-player-x"));
+		const y = Number(await world.getAttribute("data-player-y"));
+		const dx = worldX - x;
+		const dy = worldY - y;
+		const distance = Math.hypot(dx, dy);
+		if (distance <= tolerance) return;
+		if (distance >= previous - 1) stalled += 1;
+		else stalled = 0;
+		previous = distance;
+		if (stalled > 6 && distance <= reach) return;
+		if (Date.now() > deadline) return;
+		const keys: string[] = [];
+		if (Math.abs(dx) > tolerance * 0.5) keys.push(dx > 0 ? "d" : "a");
+		if (Math.abs(dy) > tolerance * 0.5) keys.push(dy > 0 ? "s" : "w");
+		if (keys.length === 0) return;
+		for (const key of keys) await page.keyboard.down(key);
+		await page.waitForTimeout(120);
+		for (const key of keys) await page.keyboard.up(key);
+	}
+}
+
+/** Clicks the center of a farm map tile, walking the player into reach first. */
 export async function clickFarmTile(
 	page: Page,
 	column: number,
 	row: number,
 ): Promise<void> {
 	const { x, y } = await farmTilePosition(page, column, row);
+	await movePlayerNear(
+		page,
+		(column + 0.5) * TILE_SIZE,
+		(row + 0.5) * TILE_SIZE,
+	);
 	await page.mouse.click(x, y);
 }
 
