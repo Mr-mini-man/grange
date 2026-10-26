@@ -65,4 +65,16 @@ jobs:
           rsync -az deploy/deploy.sh "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/deploy.sh"
 
       - name: Restart
-        run: ssh "$DEPLOY_USER@$DEPLOY_HOST" "APP_PORT=$APP_PORT APP_HOST=$DEPLOY_HOST bash $DEPLOY_PATH/deploy.sh"
+        env:
+          MAILJET_API_KEY: ${{ secrets.MAILJET_API_KEY }}
+          MAILJET_API_SECRET: ${{ secrets.MAILJET_API_SECRET }}
+          MAIL_FROM_EMAIL: ${{ secrets.MAIL_FROM_EMAIL }}
+          MAIL_FROM_NAME: ${{ secrets.MAIL_FROM_NAME }}
+        run: |
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_PORT=$APP_PORT APP_HOST=$DEPLOY_HOST \
+             MAILJET_API_KEY='${MAILJET_API_KEY}' \
+             MAILJET_API_SECRET='${MAILJET_API_SECRET}' \
+             MAIL_FROM_EMAIL='${MAIL_FROM_EMAIL}' \
+             MAIL_FROM_NAME='${MAIL_FROM_NAME}' \
+             bash $DEPLOY_PATH/deploy.sh"

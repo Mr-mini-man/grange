@@ -32,8 +32,23 @@ fi
 sed -i '/^PHX_HOST=/d' "$ENV_FILE"
 printf 'PHX_HOST=%s\n' "$HOST" >> "$ENV_FILE"
 
-# Email goes out through Mailjet in production. Without these the server boots
-# and accepts signups but silently drops verification/reset mail.
+# Mailjet credentials for transactional email, passed in from CI (GitHub
+# secrets) as environment variables. Only overwrite a value the deploy actually
+# provides, so an operator's manual edit to ~/grange.env is preserved.
+for var in MAILJET_API_KEY MAILJET_API_SECRET MAIL_FROM_EMAIL MAIL_FROM_NAME; do
+  value="${!var:-}"
+  if [ -n "$value" ]; then
+    sed -i "/^${var}=/d" "$ENV_FILE"
+    printf '%s=%s\n' "$var" "$value" >> "$ENV_FILE"
+  fi
+done
+
+# Verification/reset links must point at the public site, not the listener.
+if ! grep -q '^APP_URL=.' "$ENV_FILE"; then
+  printf 'APP_URL=https://%s\n' "$HOST" >> "$ENV_FILE"
+fi
+
+# Warn about anything still unset so a silently no-email deploy is visible.
 for var in MAILJET_API_KEY MAILJET_API_SECRET MAIL_FROM_EMAIL; do
   if ! grep -q "^${var}=." "$ENV_FILE"; then
     echo "warning: ${var} is not set in $ENV_FILE; verification/reset email will not be delivered" >&2

@@ -33,3 +33,10 @@ if config_env() == :prod do
   # Links in email must point at the public site, not the local listener.
   config :grange, :app_url, System.get_env("APP_URL") || "https://#{host}"
 end
+
+# Development defaults to the console mailer so verification/reset links can be
+# read back from GET /api/auth/mailbox (the e2e tests rely on this). Set
+# GRANGE_MAILER=mailjet plus the credentials below to send real mail locally.
+if config_env() == :dev and System.get_env("GRANGE_MAILER") == "mailjet" do
+  config :grange, :mailer, Grange.Mailer.Mailjet
+end
