@@ -5,12 +5,11 @@ import { groundFootprintTiles, rectFootprintTiles } from "./blocking";
 import { type PlacedFarmProp, placedFarmProps } from "./farmPropData";
 import {
 	ANIMATED_PROPS,
-	MAP_HEIGHT,
-	MAP_WIDTH,
 	type MovablePropKey,
 	propBlocking,
-	TILE_SIZE,
+	props,
 } from "./mapData";
+import { type PropPlacement, propPlacementReason } from "./propPlacement";
 import { propImages } from "./resources";
 import {
 	farmPlacementFootprints,
@@ -85,50 +84,28 @@ export class FarmPropLayer {
 		);
 	}
 
-	canPlace(
+	placement(
 		asset: MovablePropKey,
 		x: number,
 		y: number,
 		player: { x: number; y: number },
 		farm: ActiveFarm,
-	): boolean {
-		const original = placedFarmProps([]).find((prop) => prop.asset === asset);
-		if (!original) return false;
+	): PropPlacement | null {
+		const carried = farm.prop_overrides
+			.filter((change) => change.carried && change.asset === asset)
+			.sort((a, b) => a.index - b.index)[0];
+		const original = carried ? props[carried.index] : props.find((prop) => prop.asset === asset);
+		if (!original || original.asset !== asset) return null;
 		const source = propImages[asset];
 		const height = (source.height * original.width) / source.width;
-		if (
-			x - original.width / 2 < 0 ||
-			x + original.width / 2 > MAP_WIDTH ||
-			y - height < 0 ||
-			y > MAP_HEIGHT - 128
-		)
-			return false;
-		const candidate = propObstacles(
+		const ground = propObstacles(
 			[{ ...original, x, y }],
 			farmPlacementFootprints,
 		)[0];
-		if (!candidate) return false;
-		const overlaps = (box: typeof candidate) =>
-			candidate.left < box.right &&
-			candidate.right > box.left &&
-			candidate.top < box.bottom &&
-			candidate.bottom > box.top;
-		if (farmPlacementObstacles.some(overlaps)) return false;
-		if (
-			player.x >= candidate.left - 12 &&
-			player.x <= candidate.right + 12 &&
-			player.y >= candidate.top - 12 &&
-			player.y <= candidate.bottom + 12
-		)
-			return false;
-		return !farm.tiles.some((tile) =>
-			overlaps({
-				left: tile.x * TILE_SIZE,
-				right: (tile.x + 1) * TILE_SIZE,
-				top: tile.y * TILE_SIZE,
-				bottom: (tile.y + 1) * TILE_SIZE,
-			}),
-		);
+		if (!ground) return null;
+		const placement = { x, y, width: original.width, height, ground };
+		return { ...placement, reason: propPlacementReason(placement,
+			farmPlacementObstacles, farm.tiles, player) };
 	}
 
 	private footprint(prop: PlacedFarmProp, height: number): TileCoord[] {

@@ -110,7 +110,7 @@ defmodule Grange.FarmProps do
   defp valid_spot?(x, y, width) do
     rem(x, 2) == 0 and rem(y, 2) == 0 and
       x - div(width, 2) >= 0 and x + div(width, 2) <= 1152 and
-      y >= 96 and y <= 640
+      y >= 0 and y <= 704
   end
 
   @doc "Runs a dig/place prop action inside a transaction."

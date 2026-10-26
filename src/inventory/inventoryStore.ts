@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { usePauseStore } from "../pause/pauseStore";
+import { STARTER_ROD } from "../world/fishingData";
 import { ITEMS, type ItemId } from "./items";
 
 export const GRID_SIZE = 24;
@@ -35,8 +36,10 @@ function buildInitialHotbar(): InventorySlot[] {
 	hotbar[1] = stack("seed-bag", 10);
 	hotbar[2] = stack("watering-can", 1);
 	hotbar[3] = stack("scythe", 1);
+	hotbar[4] = stack("gate", 2);
 	hotbar[5] = stack("fence", 20);
 	hotbar[6] = stack("shovel", 1);
+	hotbar[7] = stack(STARTER_ROD, 1);
 	return hotbar;
 }
 
@@ -232,12 +235,13 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
 
 	setItemCount: (itemId, count) => {
 		const state = get();
-		if (count <= 0 && itemId !== "fence" &&
+		const keepsEmptySlot = itemId === "fence" || itemId === "gate";
+		if (count <= 0 && !keepsEmptySlot &&
 			!state.hotbar.some((slot) => slot.itemId === itemId) &&
 			!state.grid.some((slot) => slot.itemId === itemId)) return;
 		const nextGrid = state.grid.map((slot) => slot.itemId === itemId ? emptySlot() : slot);
 		const nextHotbar = state.hotbar.map((slot) => slot.itemId === itemId ? emptySlot() : slot);
-		if (count <= 0 && itemId !== "fence") {
+		if (count <= 0 && !keepsEmptySlot) {
 			set({ grid: nextGrid, hotbar: nextHotbar });
 			return;
 		}

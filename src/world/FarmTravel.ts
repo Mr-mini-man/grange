@@ -24,7 +24,13 @@ export class FarmTravel {
 		input: InputManager,
 		engine: ex.Engine,
 		train: TrainController,
+		gatePrompt: string | null = null,
 	): void {
+		// A nearby gate owns the prompt and the E key while it is in range.
+		if (gatePrompt) {
+			this.setPrompt(gatePrompt);
+			return;
+		}
 		const nearTrain = isNearFarmTrain(player.pos.x, player.pos.y);
 		const canBoard = nearTrain && train.canBoard();
 		this.setPrompt(

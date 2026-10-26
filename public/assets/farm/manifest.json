@@ -621,8 +621,8 @@
       { "name": "cross", "file": "fences/cross.webp", "width": 295, "height": 235 },
       { "name": "gate-closed-horizontal", "file": "fences/gate-closed-horizontal.webp", "width": 300, "height": 249 },
       { "name": "gate-open-horizontal", "file": "fences/gate-open-horizontal.webp", "width": 310, "height": 249 },
-      { "name": "gate-closed-vertical", "file": "fences/gate-closed-vertical.webp", "width": 240, "height": 249 },
-      { "name": "gate-open-vertical", "file": "fences/gate-open-vertical.webp", "width": 275, "height": 249 }
+      { "name": "gate-closed-vertical", "file": "fences/gate-closed-vertical.webp", "width": 48, "height": 182 },
+      { "name": "gate-open-vertical", "file": "fences/gate-open-vertical.webp", "width": 182, "height": 48 }
     ]
   },
   "sources": [

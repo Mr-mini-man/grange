@@ -90,6 +90,16 @@ the production release.
 | **Lettuce Sprites** | `/assets/crops/lettuce_*.webp` | `0_seed`, `1_sprout`, `2_leaf`, `3_loose`, `4_mature`, `harvested` |
 | **Frost-Crisp Lettuce** | `/assets/crops/frost_lettuce_*.webp` | `0_seed`, `1_sprout`, `2_young`, `3_mature`, `harvested` |
 | **Scythes & FX** | `/assets/tools/*.webp` | `scythe_basic`, `scythe_iron`, `scythe_runed`, `sweep_fx_0`, `sweep_fx_1`, `sweep_fx_2` |
+| **Fences & Gates** | `/assets/farm/fences/*.webp` | `post`, `rail-horizontal`, `rail-vertical`, and four `gate-{closed,open}-{horizontal,vertical}` variants |
+
+Fences and gates share one post graph. Owners place both from the hotbar (Gate key `5`,
+Fence key `6`, Shovel key `7`), and each has an independent server supply (20 fences, 2
+gates by default). Rails are derived from neighboring posts; placing or removing any post
+re-aims adjacent gates, preferring a horizontal neighbor, then a vertical one, then
+horizontal. A closed gate has the same collision as a fence rail and post. Walking within
+90px and pressing E or Enter toggles the gate for anyone visiting the farm; open gates remove
+only the rail they cover, so players can walk through the gap. Gate open state and direction
+persist in `farm_gates`; `farms.gate_count` tracks the remaining supply.
 
 The old placeholders (`farm/plants/tomato-plant.webp`, `farm/plants/wheat.webp`,
 `farm/plants/leafy-greens.webp`, `farm/objects/scythe.svg`) were removed and
@@ -109,4 +119,7 @@ The old placeholders (`farm/plants/tomato-plant.webp`, `farm/plants/wheat.webp`,
 | Market data + controls | `src/world/marketData.ts`, `useFarmMarket.ts` |
 | Server crop registry | `backend/lib/grange/crops.ex` |
 | Server action parsing + drop roll | `backend/lib/grange/farm_action.ex` |
+| Fence/gate graph, collision, rendering | `src/world/fenceData.ts`, `fenceRendering.ts`, `sceneObstacles.ts` |
+| Gate placement, E interaction, prompts | `src/world/fenceActions.ts`, `gateInteraction.ts`, `FarmMapScene.ts` |
 | Server barn + harvest/regrow/sell | `backend/lib/grange/farm_store.ex`, `barn_item.ex` |
+| Server fence/gate persistence | `backend/lib/grange/farm_fences.ex`, `farm_gates.ex`, `farm_gate.ex` |

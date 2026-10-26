@@ -1,0 +1,168 @@
+{
+  "frames" : {
+    "feed-01" : {
+      "file" : "feed-01.webp",
+      "slot" : [
+        0,
+        2
+      ],
+      "sourceRect" : [
+        18,
+        693,
+        312,
+        211
+      ]
+    },
+    "feed-02" : {
+      "file" : "feed-02.webp",
+      "slot" : [
+        1,
+        2
+      ],
+      "sourceRect" : [
+        341,
+        691,
+        288,
+        212
+      ]
+    },
+    "feed-03" : {
+      "file" : "feed-03.webp",
+      "slot" : [
+        2,
+        2
+      ],
+      "sourceRect" : [
+        630,
+        691,
+        310,
+        213
+      ]
+    },
+    "feed-04" : {
+      "file" : "feed-04.webp",
+      "slot" : [
+        3,
+        2
+      ],
+      "sourceRect" : [
+        944,
+        691,
+        308,
+        213
+      ]
+    },
+    "idle-01" : {
+      "file" : "idle-01.webp",
+      "slot" : [
+        0,
+        0
+      ],
+      "sourceRect" : [
+        34,
+        72,
+        298,
+        238
+      ]
+    },
+    "idle-02" : {
+      "file" : "idle-02.webp",
+      "slot" : [
+        1,
+        0
+      ],
+      "sourceRect" : [
+        347,
+        72,
+        298,
+        237
+      ]
+    },
+    "rest-01" : {
+      "file" : "rest-01.webp",
+      "slot" : [
+        0,
+        3
+      ],
+      "sourceRect" : [
+        34,
+        996,
+        288,
+        185
+      ]
+    },
+    "rest-02" : {
+      "file" : "rest-02.webp",
+      "slot" : [
+        1,
+        3
+      ],
+      "sourceRect" : [
+        343,
+        996,
+        289,
+        186
+      ]
+    },
+    "walk-01" : {
+      "file" : "walk-01.webp",
+      "slot" : [
+        0,
+        1
+      ],
+      "sourceRect" : [
+        27,
+        371,
+        302,
+        231
+      ]
+    },
+    "walk-02" : {
+      "file" : "walk-02.webp",
+      "slot" : [
+        1,
+        1
+      ],
+      "sourceRect" : [
+        336,
+        371,
+        294,
+        227
+      ]
+    },
+    "walk-03" : {
+      "file" : "walk-03.webp",
+      "slot" : [
+        2,
+        1
+      ],
+      "sourceRect" : [
+        638,
+        372,
+        301,
+        229
+      ]
+    },
+    "walk-04" : {
+      "file" : "walk-04.webp",
+      "slot" : [
+        3,
+        1
+      ],
+      "sourceRect" : [
+        951,
+        375,
+        301,
+        228
+      ]
+    }
+  },
+  "nominalGrid" : [
+    4,
+    4
+  ],
+  "sheetSize" : [
+    1254,
+    1254
+  ]
+}

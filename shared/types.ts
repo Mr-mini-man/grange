@@ -18,6 +18,16 @@ export interface FarmTile {
 	ready_at?: number | null;
 }
 
+export type GateDirection = "horizontal" | "vertical";
+
+/** A gate post with a swinging leaf and a shared, persisted open state. */
+export interface FenceGate {
+	x: number;
+	y: number;
+	direction: GateDirection;
+	open: boolean;
+}
+
 /** The full field and barn inventory for one farm. */
 export interface ActiveFarm {
 	owner: string;
@@ -28,6 +38,8 @@ export interface ActiveFarm {
 	barn: Record<string, number>;
 	fences: Array<{ x: number; y: number }>;
 	fence_count: number;
+	gates: FenceGate[];
+	gate_count: number;
 	prop_overrides: Array<{ index: number; asset: string; x: number; y: number; carried: boolean }>;
 	prop_inventory: Record<string, number>;
 }
@@ -35,6 +47,13 @@ export interface ActiveFarm {
 export type FarmPropAction =
 	| { kind: "dig"; index: number }
 	| { kind: "place"; asset: string; x: number; y: number };
+
+/** A visitor-safe request to open or close a gate. */
+export interface FarmGateAction {
+	kind: "toggle_gate";
+	x: number;
+	y: number;
+}
 
 /** A lightweight view of a farm for lobby listings. */
 export interface FarmSummary {
@@ -48,7 +67,15 @@ export interface FarmSummary {
 
 /** A player's request to act on a tile of their own farm. */
 export type FarmAction = {
-	kind: "till" | "plant" | "water" | "harvest" | "place_fence" | "remove_fence";
+	kind:
+		| "till"
+		| "plant"
+		| "water"
+		| "harvest"
+		| "place_fence"
+		| "remove_fence"
+		| "place_gate"
+		| "remove_gate";
 	x: number;
 	y: number;
 	/** Seed crop to plant (kind === "plant"). */

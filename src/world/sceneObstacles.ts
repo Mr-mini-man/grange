@@ -1,3 +1,4 @@
+import type { FenceGate } from "../../shared/types";
 import { type CasinoAssetKey, casinoProps } from "./casinoData";
 import { fenceObstacles, type FenceCoord } from "./fenceData";
 import { MAP_HEIGHT, MAP_WIDTH, type PropKey, props } from "./mapData";
@@ -25,9 +26,9 @@ export const farmFootprints: Partial<Record<PropKey, PropFootprint>> = {
 /** Flowers take up a little ground when placing props, but remain walk-through. */
 export const farmPlacementFootprints: Partial<Record<PropKey, PropFootprint>> = {
 	...farmFootprints,
-	daisies: { width: 0.7, depth: 18 },
-	marigolds: { width: 0.7, depth: 18 },
-	"blue-flowers": { width: 0.7, depth: 18 },
+	daisies: { width: 0.25, depth: 18 },
+	marigolds: { width: 0.25, depth: 18 },
+	"blue-flowers": { width: 0.25, depth: 18 },
 };
 
 const marketplaceFootprints: Partial<
@@ -72,14 +73,15 @@ export const farmPlacementObstacles: WalkObstacle[] = [];
 
 let currentFarmProps = props;
 let currentFarmFences: FenceCoord[] = [];
+let currentFarmGates: FenceGate[] = [];
 function rebuildFarmObstacles(): void {
 	farmWalkObstacles.splice(0, Infinity,
 		...propObstacles(currentFarmProps, farmFootprints),
-		...fenceObstacles(currentFarmFences),
+		...fenceObstacles(currentFarmFences, currentFarmGates),
 		{ left: 0, right: MAP_WIDTH, top: 11 * 64, bottom: MAP_HEIGHT });
 	farmPlacementObstacles.splice(0, Infinity,
 		...propObstacles(currentFarmProps, farmPlacementFootprints),
-		...fenceObstacles(currentFarmFences),
+		...fenceObstacles(currentFarmFences, currentFarmGates),
 		{ left: 0, right: MAP_WIDTH, top: 11 * 64, bottom: MAP_HEIGHT });
 }
 
@@ -90,8 +92,12 @@ export function setFarmPropObstacles(next: typeof props): void {
 	rebuildFarmObstacles();
 }
 
-export function setFarmFenceObstacles(coords: FenceCoord[]): void {
+export function setFarmFenceObstacles(
+	coords: FenceCoord[],
+	gates: FenceGate[] = [],
+): void {
 	currentFarmFences = coords;
+	currentFarmGates = gates;
 	rebuildFarmObstacles();
 }
 

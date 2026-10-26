@@ -9,11 +9,16 @@ import {
 	uniqueName,
 } from "./helpers";
 
-async function clickWorld(page: Page, worldX: number, worldY: number) {
+async function worldPoint(page: Page, worldX: number, worldY: number) {
 	const box = await page.locator(".farm-map-canvas").boundingBox();
 	expect(box).not.toBeNull();
-	await page.mouse.click(box!.x + worldX / 1152 * box!.width,
-		box!.y + worldY / 768 * box!.height);
+	return { x: box!.x + worldX / 1152 * box!.width,
+		y: box!.y + worldY / 768 * box!.height };
+}
+
+async function clickWorld(page: Page, worldX: number, worldY: number) {
+	const point = await worldPoint(page, worldX, worldY);
+	await page.mouse.click(point.x, point.y);
 }
 
 test("farming loop: hoe, seed, bucket, grow, scythe", async ({ page }) => {
@@ -50,8 +55,8 @@ test("farming loop: hoe, seed, bucket, grow, scythe", async ({ page }) => {
 	});
 	await page.keyboard.press("4");
 	await clickFarmTile(page, 9, 7);
-	// The harvested tomato lands in the first free inventory slot (hotbar 5).
-	await expect(page.getByTestId("slot-hotbar-4")).toHaveAttribute(
+	// The harvested tomato lands in the first free inventory slot after the tools.
+	await expect(page.locator('[data-item="tomato"]')).toHaveAttribute(
 		"data-count",
 		"1",
 	);
@@ -123,6 +128,42 @@ test("a fence places, blocks hoeing, and returns to inventory when shoveled", as
 	await expect(page.getByTestId("farm-tile")).toContainText("(7, 5): tilled");
 });
 
+test("a gate places, opens with E, and returns to inventory when shoveled", async ({ page }) => {
+	await resetServer();
+	await register(page, uniqueName("Gater"));
+	await expect(page).toHaveURL(/\/world$/);
+	await expect(page.getByTestId("notification-feed")).toBeVisible();
+
+	await page.keyboard.press("5");
+	await clickFarmTile(page, 8, 8);
+	await expect(page.getByTestId("slot-hotbar-4")).toHaveAttribute("data-count", "1");
+
+	// The player spawns within reach of this gate, so its prompt appears at once.
+	await expect(page.getByTestId("travel-prompt")).toContainText("open gate");
+	await page.keyboard.press("e");
+	await expect(page.getByTestId("travel-prompt")).toContainText("close gate");
+
+	await page.keyboard.press("7");
+	await clickFarmTile(page, 8, 8);
+	await expect(page.getByTestId("slot-hotbar-4")).toHaveAttribute("data-count", "2");
+});
+
+test("fence placement previews on hold and commits only on a valid release", async ({ page }) => {
+	await resetServer();
+	await register(page, uniqueName("FencePreview"));
+	await page.keyboard.press("6");
+	const slot = page.getByTestId("slot-hotbar-5");
+	const point = await farmTilePosition(page, 7, 5);
+	await page.mouse.move(point.x, point.y);
+	await page.mouse.down();
+	await expect(slot).toHaveAttribute("data-count", "20");
+	await page.mouse.up();
+	await expect(slot).toHaveAttribute("data-count", "19");
+	await page.mouse.down();
+	await page.mouse.up();
+	await expect(slot).toHaveAttribute("data-count", "19");
+});
+
 test("the shovel moves a well and sign through inventory", async ({ page }) => {
 	await resetServer();
 	await register(page, uniqueName("Mover"));
@@ -140,6 +181,50 @@ test("the shovel moves a well and sign through inventory", async ({ page }) => {
 	await expect(signSlot).toHaveCount(1);
 	await signSlot.click();
 	await clickFarmTile(page, 6, 7);
+	await expect(signSlot).toHaveCount(0);
+});
+
+test("a carried house previews during drag and can return to its original spot", async ({ page }) => {
+	await resetServer();
+	await register(page, uniqueName("Builder"));
+	await page.keyboard.press("7");
+	await clickWorld(page, 210, 200);
+	const houseSlot = page.locator('[data-item="farmhouse"]');
+	await expect(houseSlot).toHaveCount(1);
+	await houseSlot.click();
+
+	const canvas = page.locator(".farm-map-canvas");
+	const before = await canvas.screenshot();
+	const blocked = await worldPoint(page, 200, 400);
+	await page.mouse.move(blocked.x, blocked.y);
+	await page.mouse.down();
+	await expect(houseSlot).toHaveCount(1);
+	const preview = await canvas.screenshot();
+	expect(preview.equals(before)).toBe(false);
+	await page.mouse.up();
+	await expect(houseSlot).toHaveCount(1);
+
+	const original = await worldPoint(page, 210, 260);
+	await page.mouse.move(original.x, original.y);
+	await page.mouse.down();
+	await expect(houseSlot).toHaveCount(1);
+	await page.mouse.up();
+	await expect(houseSlot).toHaveCount(0);
+});
+
+test("a carried sign can be dropped directly on the road path", async ({ page }) => {
+	await resetServer();
+	await register(page, uniqueName("Roadsign"));
+	await page.keyboard.press("7");
+	await clickWorld(page, 395, 360);
+	const signSlot = page.locator('[data-item="sign"]');
+	await expect(signSlot).toHaveCount(1);
+	await signSlot.click();
+	const road = await worldPoint(page, 600, 288);
+	await page.mouse.move(road.x, road.y);
+	await page.mouse.down();
+	await expect(signSlot).toHaveCount(1);
+	await page.mouse.up();
 	await expect(signSlot).toHaveCount(0);
 });
 
@@ -201,10 +286,13 @@ test("selecting a hotbar slot highlights it", async ({ page }) => {
 	);
 });
 
-test("a visitor sees another farm read-only", async ({ page }) => {
+test("a visitor sees another farm read-only but can toggle its gates", async ({ page }) => {
 	await resetServer();
 	const owner = uniqueName("Owner");
 	await register(page, owner);
+	await page.keyboard.press("5");
+	await clickFarmTile(page, 8, 8);
+	await expect(page.getByTestId("slot-hotbar-4")).toHaveAttribute("data-count", "1");
 	await page.keyboard.press("Escape");
 	await page.getByTestId("logout").click();
 	await page.waitForURL("**/");
@@ -214,6 +302,16 @@ test("a visitor sees another farm read-only", async ({ page }) => {
 
 	await expect(page.locator("canvas[aria-label^='Farm map']")).toBeVisible();
 	await expect(page.getByTestId("notification-feed")).toContainText("Visiting");
+	await expect(page.getByTestId("travel-prompt")).toContainText("open gate");
+	await page.keyboard.press("e");
+	await expect(page.getByTestId("travel-prompt")).toContainText("close gate");
+
+	// Placement is still owner-only.
+	await page.keyboard.press("6");
+	await clickFarmTile(page, 7, 8);
+	await expect(page.getByTestId("notification-feed")).toContainText(
+		"Visitors can't farm here.",
+	);
 });
 
 test("tilled soil renders as brown dirt, not grass", async ({ page }) => {

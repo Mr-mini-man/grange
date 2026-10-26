@@ -60,6 +60,28 @@ defmodule GrangeWeb.FarmChannelTest do
     assert reply.error == "not your farm"
   end
 
+  test "a visitor can toggle a gate but cannot place one" do
+    FarmStore.ensure("Alice")
+    FarmStore.action("Alice", %{"kind" => "place_gate", "x" => 7, "y" => 5})
+
+    {:ok, _reply, socket} =
+      signed_socket("Bob") |> subscribe_and_join(GrangeWeb.FarmChannel, "farm:Alice")
+
+    ref =
+      push(socket, "gateAction", %{
+        "action" => %{"kind" => "toggle_gate", "x" => 7, "y" => 5}
+      })
+
+    assert_reply(ref, :ok)
+    assert_broadcast("farmUpdate", %{farm: %{gates: [%{open: true}]}})
+
+    ref =
+      push(socket, "farmAction", %{"action" => %{"kind" => "place_gate", "x" => 8, "y" => 5}})
+
+    assert_reply(ref, :error, reply)
+    assert reply.error == "not your farm"
+  end
+
   test "the owner can sell produce and the change is broadcast" do
     FarmStore.ensure("Alice")
     FarmStore.action("Alice", %{"kind" => "till", "x" => 1, "y" => 1})

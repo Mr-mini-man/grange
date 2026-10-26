@@ -1,5 +1,13 @@
 import type { CropId } from "../../shared/crops";
 import type { FarmToolId } from "../../shared/farm";
+import {
+	FISH,
+	FISH_ORDER,
+	type FishId,
+	RODS,
+	ROD_ORDER,
+	type RodId,
+} from "../world/fishingData";
 import type { MovablePropKey } from "../world/mapData";
 
 export type ItemId =
@@ -19,10 +27,13 @@ export type ItemId =
 	| "frost-lettuce-seed"
 	| "sunburst-tomato-seed"
 	| "fence"
+	| "gate"
 	| "shovel"
+	| RodId
+	| FishId
 	| MovablePropKey;
 
-export type ItemKind = "tool" | "seed" | "crop" | "building";
+export type ItemKind = "tool" | "seed" | "crop" | "fish" | "building";
 
 export interface ItemDef {
 	id: ItemId;
@@ -34,7 +45,37 @@ export interface ItemDef {
 	description: string;
 }
 
+/** Fishing rods are single-stack tools; their icon and blurb come from RODS. */
+function rodItem(id: RodId): ItemDef {
+	return {
+		id,
+		name: RODS[id].name,
+		kind: "tool",
+		maxStack: 1,
+		icon: RODS[id].icon,
+		description: RODS[id].blurb,
+	};
+}
+
+/** Caught fish are stackable inventory items; their emoji stands in for art. */
+function fishItem(id: FishId): ItemDef {
+	return {
+		id,
+		name: FISH[id].name,
+		kind: "fish",
+		maxStack: 99,
+		icon: FISH[id].emoji,
+		description: FISH[id].blurb,
+	};
+}
+
 export const ITEMS: Record<ItemId, ItemDef> = {
+	...(Object.fromEntries(
+		ROD_ORDER.map((id) => [id, rodItem(id)]),
+	) as Record<RodId, ItemDef>),
+	...(Object.fromEntries(
+		FISH_ORDER.map((id) => [id, fishItem(id)]),
+	) as Record<FishId, ItemDef>),
 	hoe: {
 		id: "hoe",
 		name: "Hoe",
@@ -159,6 +200,14 @@ export const ITEMS: Record<ItemId, ItemDef> = {
 		id: "fence", name: "Fence", kind: "building", maxStack: 99,
 		icon: "/assets/farm/fences/post.webp",
 		description: "Click grass to place a fence post. Adjacent posts connect automatically.",
+	},
+	gate: {
+		id: "gate",
+		name: "Gate",
+		kind: "building",
+		maxStack: 99,
+		icon: "/assets/farm/fences/gate-closed-horizontal.webp",
+		description: "Click grass to place a gate. Walk up and press E to open it.",
 	},
 	shovel: {
 		id: "shovel", name: "Shovel", kind: "tool", maxStack: 1,
