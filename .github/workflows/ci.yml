@@ -11,7 +11,9 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Pin the image: `ubuntu-latest` started rolling to Ubuntu 26 on 2026-10-19,
+    # and Playwright's `--with-deps` apt step stalls on the newer image.
+    runs-on: ubuntu-24.04
     # Playwright's `--with-deps` occasionally stalls on apt; the job itself
     # normally finishes in ~5 min, so allow headroom for a slow install.
     timeout-minutes: 20
@@ -61,8 +63,28 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
+      - name: Harden apt (no prompts, bounded lock, retries)
+        run: |
+          echo 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/80-retries
+          echo 'DPkg::Lock::Timeout "120";' | sudo tee -a /etc/apt/apt.conf.d/80-retries
+
       - name: Install Playwright (chromium)
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 14
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          # apt has a habit of stalling on this runner. Bound each attempt so a
+          # hiccup fails fast and retries instead of hanging until the job-level
+          # 20-minute timeout cancels the whole run.
+          for attempt in 1 2; do
+            if timeout 300 pnpm exec playwright install --with-deps chromium; then
+              exit 0
+            fi
+            echo "Playwright install attempt ${attempt} failed; retrying"
+            timeout 60 sudo dpkg --configure -a || true
+            sleep 5
+          done
+          exit 1
 
       - name: Lint, unit tests, build
         run: pnpm check
