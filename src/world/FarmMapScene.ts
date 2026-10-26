@@ -32,7 +32,6 @@ import {
 	props,
 	isMovablePropAsset,
 	TILE_SIZE,
-	terrainAt,
 } from "./mapData";
 import { buildTerrain } from "./farmTerrain";
 import { updateFarmPlayer } from "./playerMovement";
