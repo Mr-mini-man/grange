@@ -32,6 +32,14 @@ fi
 sed -i '/^PHX_HOST=/d' "$ENV_FILE"
 printf 'PHX_HOST=%s\n' "$HOST" >> "$ENV_FILE"
 
+# Email goes out through Mailjet in production. Without these the server boots
+# and accepts signups but silently drops verification/reset mail.
+for var in MAILJET_API_KEY MAILJET_API_SECRET MAIL_FROM_EMAIL; do
+  if ! grep -q "^${var}=." "$ENV_FILE"; then
+    echo "warning: ${var} is not set in $ENV_FILE; verification/reset email will not be delivered" >&2
+  fi
+done
+
 # One-time migration: previous releases kept the database inside the release
 # directory (<release>/data/grange.sqlite3). If the new location is still empty
 # but the legacy file exists, carry it over so existing data survives the move.

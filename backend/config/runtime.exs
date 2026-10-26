@@ -30,5 +30,6 @@ if config_env() == :prod do
   # Real mail in production; the console adapter (and its token-logging dev
   # mailbox route) never ships here.
   config :grange, :mailer, Grange.Mailer.Mailjet
-  config :grange, :app_url, System.get_env("APP_URL") || "http://localhost:#{port}"
+  # Links in email must point at the public site, not the local listener.
+  config :grange, :app_url, System.get_env("APP_URL") || "https://#{host}"
 end
