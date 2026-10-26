@@ -81,7 +81,8 @@ defmodule Grange.Mailer.Mailjet do
     name = System.get_env("MAIL_FROM_NAME") || "Grange"
 
     if key == "" or secret == "" or from == "" do
-      {:error, "Mailjet is not configured (set MAILJET_API_KEY, MAILJET_API_SECRET, MAIL_FROM_EMAIL)"}
+      {:error,
+       "Mailjet is not configured (set MAILJET_API_KEY, MAILJET_API_SECRET, MAIL_FROM_EMAIL)"}
     else
       {:ok, key, secret, from, name}
     end
