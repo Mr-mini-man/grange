@@ -7,6 +7,7 @@ import {
 	movePlayerNear,
 	register,
 	resetServer,
+	tapFarmTile,
 	uniqueName,
 } from "./helpers";
 
@@ -175,7 +176,7 @@ test("the shovel moves a well and sign through inventory", async ({ page }) => {
 	const wellSlot = page.locator('[data-item="well"]');
 	await expect(wellSlot).toHaveCount(1);
 	await wellSlot.click();
-	await clickFarmTile(page, 8, 7);
+	await tapFarmTile(page, 8, 7);
 	await expect(wellSlot).toHaveCount(0);
 
 	await page.keyboard.press("7");
@@ -183,7 +184,7 @@ test("the shovel moves a well and sign through inventory", async ({ page }) => {
 	const signSlot = page.locator('[data-item="sign"]');
 	await expect(signSlot).toHaveCount(1);
 	await signSlot.click();
-	await clickFarmTile(page, 6, 7);
+	await tapFarmTile(page, 6, 7);
 	await expect(signSlot).toHaveCount(0);
 });
 

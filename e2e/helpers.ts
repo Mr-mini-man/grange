@@ -233,25 +233,33 @@ export async function movePlayerNear(
 	const deadline = Date.now() + timeout;
 	let previous = Number.POSITIVE_INFINITY;
 	let stalled = 0;
-	for (;;) {
-		const x = Number(await world.getAttribute("data-player-x"));
-		const y = Number(await world.getAttribute("data-player-y"));
-		const dx = worldX - x;
-		const dy = worldY - y;
-		const distance = Math.hypot(dx, dy);
-		if (distance <= tolerance) return;
-		if (distance >= previous - 1) stalled += 1;
-		else stalled = 0;
-		previous = distance;
-		if (stalled > 6 && distance <= reach) return;
-		if (Date.now() > deadline) return;
-		const keys: string[] = [];
-		if (Math.abs(dx) > tolerance * 0.5) keys.push(dx > 0 ? "d" : "a");
-		if (Math.abs(dy) > tolerance * 0.5) keys.push(dy > 0 ? "s" : "w");
-		if (keys.length === 0) return;
-		for (const key of keys) await page.keyboard.down(key);
-		await page.waitForTimeout(120);
-		for (const key of keys) await page.keyboard.up(key);
+	let held: string[] = [];
+	try {
+		for (;;) {
+			const x = Number(await world.getAttribute("data-player-x"));
+			const y = Number(await world.getAttribute("data-player-y"));
+			const dx = worldX - x;
+			const dy = worldY - y;
+			const distance = Math.hypot(dx, dy);
+			if (distance <= tolerance) return;
+			if (distance >= previous - 1) stalled += 1;
+			else stalled = 0;
+			previous = distance;
+			if (stalled > 8 && distance <= reach) return;
+			if (Date.now() > deadline) return;
+			const keys: string[] = [];
+			if (Math.abs(dx) > tolerance * 0.5) keys.push(dx > 0 ? "d" : "a");
+			if (Math.abs(dy) > tolerance * 0.5) keys.push(dy > 0 ? "s" : "w");
+			if (keys.length === 0) return;
+			// Keep moving continuously; only change the keys that differ. Polling
+			// instead of bursting keeps the walk fast enough on slow runners.
+			for (const key of held) if (!keys.includes(key)) await page.keyboard.up(key);
+			for (const key of keys) if (!held.includes(key)) await page.keyboard.down(key);
+			held = keys;
+			await page.waitForTimeout(60);
+		}
+	} finally {
+		for (const key of held) await page.keyboard.up(key);
 	}
 }
 
@@ -273,6 +281,18 @@ export async function clickFarmTile(
 		(row + 0.5) * TILE_SIZE,
 		12,
 	);
+	await page.mouse.click(x, y);
+}
+
+/** Clicks a farm tile without moving the player. Prop placement is not
+ * reach-gated, and walking into the tile would trip the "move out of the
+ * placement area" rule, so placement tests click from where they stand. */
+export async function tapFarmTile(
+	page: Page,
+	column: number,
+	row: number,
+): Promise<void> {
+	const { x, y } = await farmTilePosition(page, column, row);
 	await page.mouse.click(x, y);
 }
 

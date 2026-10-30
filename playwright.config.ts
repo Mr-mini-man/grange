@@ -7,7 +7,9 @@ export default defineConfig({
 	testDir: "e2e",
 	fullyParallel: false,
 	workers: 1,
-	timeout: 60_000,
+	// Walking-based farm/casino tests can run long on a slow shared runner, so
+	// keep headroom above the ~20s a healthy run needs for each one.
+	timeout: 90_000,
 	// The CI workflow uploads `playwright-report/`, so always emit the HTML
 	// report (the default list-only reporter never creates it).
 	reporter: [["list"], ["html", { open: "never" }]],
