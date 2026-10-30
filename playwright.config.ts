@@ -21,6 +21,9 @@ export default defineConfig({
 		url: BASE_URL,
 		reuseExistingServer: true,
 		timeout: 120_000,
-		env: { PORT, MIX_ENV: "dev" },
+		// The mailbox route the e2e specs read verification/reset links from only
+		// exists under the console mailer, so pin it even when `.env` sets real
+		// Mailjet credentials for local development.
+		env: { PORT, MIX_ENV: "dev", GRANGE_MAILER: "console" },
 	},
 });

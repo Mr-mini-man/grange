@@ -35,8 +35,22 @@ if config_env() == :prod do
 end
 
 # Development defaults to the console mailer so verification/reset links can be
-# read back from GET /api/auth/mailbox (the e2e tests rely on this). Set
-# GRANGE_MAILER=mailjet plus the credentials below to send real mail locally.
-if config_env() == :dev and System.get_env("GRANGE_MAILER") == "mailjet" do
-  config :grange, :mailer, Grange.Mailer.Mailjet
+# read back from GET /api/auth/mailbox (the e2e tests rely on this). When the
+# Mailjet credentials below are present, real mail is sent instead, so the
+# production provider can be exercised locally before a deploy. Set
+# GRANGE_MAILER to "console" or "mailjet" to override that choice.
+if config_env() == :dev do
+  mailjet_configured? =
+    Enum.all?(["MAILJET_API_KEY", "MAILJET_API_SECRET", "MAIL_FROM_EMAIL"], fn var ->
+      System.get_env(var) not in [nil, ""]
+    end)
+
+  mailer =
+    case System.get_env("GRANGE_MAILER") do
+      "mailjet" -> Grange.Mailer.Mailjet
+      "console" -> Grange.Mailer.Console
+      _ -> if mailjet_configured?, do: Grange.Mailer.Mailjet, else: Grange.Mailer.Console
+    end
+
+  config :grange, :mailer, mailer
 end

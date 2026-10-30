@@ -11,9 +11,27 @@ defmodule Grange.Mailer do
 
   @callback deliver(email()) :: :ok | {:error, term()}
 
+  require Logger
+
   @doc "Hands the message to the configured adapter."
   @spec deliver(email()) :: :ok | {:error, term()}
-  def deliver(email), do: impl().deliver(email)
+  def deliver(email) do
+    adapter = impl()
+
+    case adapter.deliver(email) do
+      # Callers keep registration best-effort, so a delivery failure would
+      # otherwise be invisible; log it so a misconfigured provider is obvious.
+      {:error, reason} = error ->
+        Logger.warning(
+          "[mail] #{inspect(adapter)} delivery to #{email.to} failed: #{inspect(reason)}"
+        )
+
+        error
+
+      result ->
+        result
+    end
+  end
 
   @doc "The configured adapter module."
   @spec impl() :: module()
