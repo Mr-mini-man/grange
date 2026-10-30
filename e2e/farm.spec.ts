@@ -4,6 +4,7 @@ import {
 	farmTilePixel,
 	farmTilePosition,
 	hoverFarmTile,
+	movePlayerNear,
 	register,
 	resetServer,
 	uniqueName,
@@ -18,6 +19,7 @@ async function worldPoint(page: Page, worldX: number, worldY: number) {
 
 async function clickWorld(page: Page, worldX: number, worldY: number) {
 	const point = await worldPoint(page, worldX, worldY);
+	await movePlayerNear(page, worldX, worldY);
 	await page.mouse.click(point.x, point.y);
 }
 
@@ -65,6 +67,7 @@ test("farming loop: hoe, seed, bucket, grow, scythe", async ({ page }) => {
 
 	// Drag-paint tills two tiles at once
 	await page.keyboard.press("1");
+	await movePlayerNear(page, 7.5 * 64, 6.5 * 64);
 	const from = await farmTilePosition(page, 7, 6);
 	const to = await farmTilePosition(page, 8, 6);
 	await page.mouse.move(from.x, from.y);
@@ -233,11 +236,15 @@ test("the hoe refuses tiles behind buildings", async ({ page }) => {
 	await register(page, uniqueName("Sprout"));
 	await expect(page).toHaveURL(/\/world$/);
 
-	await clickFarmTile(page, 3, 2);
+	// A tile inside the barn's footprint. It is reachable from the clear ground
+	// beside the building, but the hoe must refuse it as blocked.
+	await clickFarmTile(page, 12, 4);
 	await expect(page.getByTestId("notification-feed")).toContainText(
 		"Something is in the way.",
 	);
-	await expect(page.getByTestId("farm-tile")).toContainText("(3, 2): grass");
+	await expect(page.getByTestId("farm-tile")).toContainText(
+		"(12, 4): path-horizontal",
+	);
 });
 
 test("flowers can be shoveled before tilling their tile", async ({ page }) => {

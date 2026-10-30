@@ -15,15 +15,20 @@ test("the slot machine opens a playable sub-screen", async ({ page }) => {
 	await page.waitForLoadState("networkidle");
 	await walkToCasino(page);
 
-	// Move into the aisle between the poker and blackjack tables, drop to the
-	// bottom of the room, then sweep left into the row of slot machines.
+	// Reach is capped at MAX_INTERACTION_DISTANCE, so a sweep along the bottom
+	// of the room stops at the stools ~140px from the machines. Instead, slide
+	// left along the aisle just above the row, then step down into the middle
+	// machine's reach (its collision box stops the descent well within range).
 	await page.keyboard.down("a");
 	await page.waitForTimeout(1_050);
 	await page.keyboard.up("a");
 	await page.keyboard.down("s");
-	await page.waitForTimeout(3_600);
+	await page.waitForTimeout(2_050);
 	await page.keyboard.up("s");
-	await walkUntilPrompt(page, ["a"], "play the slots");
+	await page.keyboard.down("a");
+	await page.waitForTimeout(1_100);
+	await page.keyboard.up("a");
+	await walkUntilPrompt(page, ["s"], "play the slots");
 	await page.keyboard.press("e");
 
 	const overlay = page.getByTestId("slots-overlay");

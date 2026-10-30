@@ -22,6 +22,7 @@ import { TOOL_HINTS } from "./farmTools";
 import { FarmTileSync } from "./farmSceneTiles";
 import { nearbyGate, toggleGate } from "./gateInteraction";
 import { farmActionOnSpace } from "./farmSceneInput";
+import { PlayerReach } from "./interaction";
 import { InputManager } from "./InputManager";
 import {
 	FARM_PLAYER_SPAWN,
@@ -60,6 +61,7 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 	private readonly strokeTiles = new Set<string>();
 	private message = TOOL_HINTS.hoe;
 	private hovered: FarmHoveredTile | null = null;
+	private readonly reach = new PlayerReach((message) => this.report(message));
 	private lastWorldPos: ex.Vector | null = null;
 	private deactivated = false;
 	private readonly travel: FarmTravel;
@@ -213,6 +215,8 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 		updateFarmPlayer(this.player, dir, delta, this.combo.moveSpeed);
 		updateFarmerGraphics(this.player, dir);
 
+		if (this.reach.moved(this.player.pos)) this.emitHud();
+
 		const gate = nearbyGate(farm?.gates ?? [], this.player.pos);
 		this.travel.update(this.player, this.inputManager, engine, this.train, gate?.prompt ?? null);
 		if (gate && this.inputManager.consumePress("KeyE", "Enter")) {
@@ -257,13 +261,14 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 		if (column < 0 || row < 0 || column >= MAP_COLUMNS || row >= MAP_ROWS)
 			return;
 
+		if (this.reach.blocked(this.player.pos, worldPos)) return;
+
 		const strokeKey = `${column},${row}`;
 		if (this.strokeTiles.has(strokeKey)) return;
 		this.strokeTiles.add(strokeKey);
 
 		if (!this.isOwner) {
-			this.message = "Visitors can't farm here.";
-			this.emitHud();
+			this.report("Visitors can't farm here.");
 			return;
 		}
 
@@ -329,11 +334,11 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 	}
 
 	private emitHud(): void {
-		const farm = useGameStore.getState().activeFarm;
 		this.onFarmUpdate?.({
-			tomatoes: farm?.tomatoes ?? 0,
+			tomatoes: useGameStore.getState().activeFarm?.tomatoes ?? 0,
 			message: this.message,
 			hovered: this.hovered,
+			player: { x: this.player.pos.x, y: this.player.pos.y },
 		});
 	}
 }
