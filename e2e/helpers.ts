@@ -112,6 +112,33 @@ export async function walkUntilPrompt(
 	}
 }
 
+/**
+ * Taps a movement key in short bursts until the travel prompt contains `text`.
+ * A continuous hold can coast well past a narrow interaction radius on a slow
+ * runner before the assertion notices; short bursts bound that overshoot so
+ * the player stops inside the radius instead of through it.
+ */
+export async function stepUntilPrompt(
+	page: Page,
+	key: string,
+	text: string,
+	{ step = 70, timeout = 20_000 } = {},
+): Promise<void> {
+	const prompt = page.getByTestId("travel-prompt");
+	const deadline = Date.now() + timeout;
+	for (;;) {
+		await page.keyboard.down(key);
+		await page.waitForTimeout(step);
+		await page.keyboard.up(key);
+		if (await prompt.isVisible()) {
+			const shown = (await prompt.textContent()) ?? "";
+			if (shown.includes(text)) return;
+		}
+		if (Date.now() > deadline)
+			throw new Error(`Prompt "${text}" did not appear while tapping ${key}`);
+	}
+}
+
 /** Waits for the arriving train to park so the player can move again. The
  * marketplace spawn sits beside the train, so its prompt appears once idle. */
 export async function waitForTrainStop(page: Page): Promise<void> {

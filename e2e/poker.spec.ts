@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
 	register,
 	resetServer,
+	stepUntilPrompt,
 	uniqueName,
 	waitForTrainStop,
 	walkUntilPrompt,
@@ -37,7 +38,7 @@ test("the poker table opens a playable sub-screen", async ({ page }) => {
 	await page.keyboard.down("s");
 	await page.waitForTimeout(700);
 	await page.keyboard.up("s");
-	await walkUntilPrompt(page, ["a"], "play poker");
+	await stepUntilPrompt(page, "a", "play poker");
 	await page.keyboard.press("e");
 
 	const overlay = page.getByTestId("poker-overlay");
