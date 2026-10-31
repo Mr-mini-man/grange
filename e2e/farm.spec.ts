@@ -68,7 +68,9 @@ test("farming loop: hoe, seed, bucket, grow, scythe", async ({ page }) => {
 
 	// Drag-paint tills two tiles at once
 	await page.keyboard.press("1");
-	await movePlayerNear(page, 7.5 * 64, 6.5 * 64);
+	// Stand midway between the two tiles so both are inside reach when the drag
+	// passes over them.
+	await movePlayerNear(page, 8 * 64, 6.5 * 64, 16);
 	const from = await farmTilePosition(page, 7, 6);
 	const to = await farmTilePosition(page, 8, 6);
 	await page.mouse.move(from.x, from.y);

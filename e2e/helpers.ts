@@ -218,16 +218,17 @@ export async function hoverFarmTile(
  * Tools only reach `MAX_INTERACTION_DISTANCE` now, so click-driven farm tests
  * must stand beside their target first. The player's world position is
  * published by the scene as data attributes on the farm page, so the helper
- * polls the real position rather than guessing key-hold durations. It also
- * gives up once the player is inside interaction range but stalled against
- * scenery, which is as close as a blocked tile allows.
+ * polls the real position rather than guessing key-hold durations. It gives up
+ * on a stalled walk only once the player is within `reach` px of the target, so
+ * a caller whose real target sits one square beyond the walk point can demand a
+ * tighter margin before the walk is abandoned.
  */
 export async function movePlayerNear(
 	page: Page,
 	worldX: number,
 	worldY: number,
 	tolerance = 40,
-	{ reach = MAX_INTERACTION_DISTANCE, timeout = 15_000 } = {},
+	{ reach = MAX_INTERACTION_DISTANCE, timeout = 20_000 } = {},
 ): Promise<void> {
 	const world = page.locator(".farm-map-page");
 	const deadline = Date.now() + timeout;
@@ -245,18 +246,24 @@ export async function movePlayerNear(
 			if (distance >= previous - 1) stalled += 1;
 			else stalled = 0;
 			previous = distance;
-			if (stalled > 8 && distance <= reach) return;
+			// A slow runner can lag the game loop behind the DOM poll and look
+			// stalled; only bail out after a long pause and only when the point
+			// the caller will actually act on is already reachable.
+			if (stalled > 20 && distance <= reach) return;
 			if (Date.now() > deadline) return;
 			const keys: string[] = [];
 			if (Math.abs(dx) > tolerance * 0.5) keys.push(dx > 0 ? "d" : "a");
 			if (Math.abs(dy) > tolerance * 0.5) keys.push(dy > 0 ? "s" : "w");
 			if (keys.length === 0) return;
+			// Turning is progress: a new direction should not inherit the stalled
+			// count from the old one.
+			if (keys.join() !== held.join()) stalled = 0;
 			// Keep moving continuously; only change the keys that differ. Polling
 			// instead of bursting keeps the walk fast enough on slow runners.
 			for (const key of held) if (!keys.includes(key)) await page.keyboard.up(key);
 			for (const key of keys) if (!held.includes(key)) await page.keyboard.down(key);
 			held = keys;
-			await page.waitForTimeout(60);
+			await page.waitForTimeout(50);
 		}
 	} finally {
 		for (const key of held) await page.keyboard.up(key);
@@ -280,6 +287,10 @@ export async function clickFarmTile(
 		(beside + 0.5) * TILE_SIZE,
 		(row + 0.5) * TILE_SIZE,
 		12,
+		// The click lands on a tile one square past the walk point, so once the
+		// walk is abandoned the player must be close enough that the *clicked*
+		// tile is inside reach, not merely the walk point.
+		{ reach: MAX_INTERACTION_DISTANCE - TILE_SIZE - 8 },
 	);
 	await page.mouse.click(x, y);
 }
