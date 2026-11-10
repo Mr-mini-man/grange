@@ -114,16 +114,12 @@ test("registration rejects a short password and a duplicate username", async ({
 
 	await page.getByTestId("password").fill("long-enough-pass");
 	await page.getByRole("button", { name: /Create Account/i }).click();
-	await page.waitForURL(`${BASE}/`);
-	await page.getByTestId("menu-user").waitFor();
+	// A valid signup lands on the "check your email" notice, not on the menu.
+	await expect(page.getByTestId("auth-notice")).toBeVisible();
+	await expect(page).toHaveURL(`${BASE}/login`);
 
-	await page.getByTestId("menu-logout").click();
-	await page.getByTestId("menu-login").click();
-	await page.waitForURL("**/login");
-	await page.getByTestId("toggle-mode").click();
-	await page.getByTestId("username").fill(name);
+	// Registering the same username again (with a different email) is rejected.
 	await page.getByTestId("email").fill(`other-${name}@example.test`);
-	await page.getByTestId("password").fill("long-enough-pass");
 	await page.getByRole("button", { name: /Create Account/i }).click();
 	await expect(page.getByTestId("auth-error")).toContainText(/username is taken/i);
 	await expect(page).toHaveURL(`${BASE}/login`);

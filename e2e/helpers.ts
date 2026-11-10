@@ -15,6 +15,28 @@ export async function resetServer(): Promise<void> {
 }
 
 /**
+ * Reads back the last email the dev console mailer captured for an address.
+ * Only available outside production, where real mail is sent instead.
+ */
+export async function mailboxFor(email: string): Promise<string> {
+	const res = await fetch(
+		`${BASE}/api/auth/mailbox?to=${encodeURIComponent(email)}`,
+	);
+	const body = (await res.json()) as { email?: { text: string } | null };
+	if (!body.email) throw new Error(`no mail captured for ${email}`);
+	return body.email.text;
+}
+
+/** Extracts a `token=` value from the mail line that contains `marker`. */
+export function tokenFrom(text: string, marker: string): string {
+	const line = text.split("\n").find((l) => l.includes(marker));
+	if (!line) throw new Error(`no ${marker} link in mail`);
+	const match = line.match(/token=([^\s&]+)/);
+	if (!match) throw new Error("no token in link");
+	return decodeURIComponent(match[1]);
+}
+
+/**
  * Waits until the world route is actually interactive. The route renders
  * behind a session check, so the canvas/hotkeys come up a beat after the URL
  * changes.
@@ -38,21 +60,27 @@ export async function enterFarm(page: Page): Promise<void> {
 }
 
 /**
- * Registers a fresh account and leaves the page on the main menu, signed in.
- * `/api/reset` wipes accounts too, so the username only has to be unique
- * within a test.
+ * Registers a fresh account, opens the emailed verification link, and leaves
+ * the page on the main menu, signed in. `/api/reset` wipes accounts too, so
+ * the username only has to be unique within a test.
  */
 export async function registerAccount(
 	page: Page,
 	username: string,
 	password = "harvest-please",
 ): Promise<string> {
+	const email = `${username}@example.test`;
 	await page.goto(`${BASE}/login`);
 	await page.getByTestId("toggle-mode").click();
 	await page.getByTestId("username").fill(username);
-	await page.getByTestId("email").fill(`${username}@example.test`);
+	await page.getByTestId("email").fill(email);
 	await page.getByTestId("password").fill(password);
 	await page.getByRole("button", { name: /Create Account/i }).click();
+	await page.getByTestId("auth-notice").waitFor();
+
+	// Signup issues no session: verify through the link the console mailer kept.
+	const token = tokenFrom(await mailboxFor(email), "/verify");
+	await page.goto(`${BASE}/verify?token=${encodeURIComponent(token)}`);
 	await page.waitForURL(`${BASE}/`);
 	await page.getByTestId("menu-user").waitFor();
 	return username;

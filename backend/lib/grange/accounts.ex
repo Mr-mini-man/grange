@@ -10,7 +10,7 @@ defmodule Grange.Accounts do
 
   import Ecto.Query
 
-  alias Grange.{Repo, Session, User}
+  alias Grange.{AuthToken, Mailer, Repo, Session, User}
 
   @username_re ~r/^[a-zA-Z0-9_-]{3,32}$/
   @email_re ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -33,7 +33,8 @@ defmodule Grange.Accounts do
     end
   end
 
-  @spec authenticate(String.t(), String.t()) :: {:ok, User.t()} | {:error, String.t()}
+  @spec authenticate(String.t(), String.t()) ::
+          {:ok, User.t()} | {:error, String.t() | :unverified}
   def authenticate(username, password) do
     case Repo.get_by(User, username: username) do
       nil ->
@@ -42,10 +43,15 @@ defmodule Grange.Accounts do
         {:error, "invalid username or password"}
 
       %User{} = user ->
-        if Argon2.verify_pass(password, user.password_hash) do
-          {:ok, user}
-        else
-          {:error, "invalid username or password"}
+        cond do
+          not Argon2.verify_pass(password, user.password_hash) ->
+            {:error, "invalid username or password"}
+
+          is_nil(user.email_verified_at) ->
+            {:error, :unverified}
+
+          true ->
+            {:ok, user}
         end
     end
   end
@@ -104,10 +110,126 @@ defmodule Grange.Accounts do
 
   @spec reset() :: :ok
   def reset do
+    Repo.delete_all(AuthToken)
     Repo.delete_all(Session)
     Repo.delete_all(User)
     :ok
   end
+
+  @spec find_by_email(String.t()) :: User.t() | nil
+  def find_by_email(email), do: Repo.get_by(User, email: normalize_email(email))
+
+  @spec find_by_id(String.t()) :: User.t() | nil
+  def find_by_id(user_id), do: Repo.get(User, user_id)
+
+  @doc "Issues and mails a verification link. Best-effort: returns the send result."
+  @spec send_verification_email(User.t()) :: :ok | {:error, term()}
+  def send_verification_email(%User{} = user) do
+    user.id
+    |> AuthToken.issue(:verify_email)
+    |> then(&Mailer.deliver(Mailer.verification_email(user.email, &1)))
+  end
+
+  @doc "Issues and mails a password reset link."
+  @spec send_password_reset_email(User.t()) :: :ok | {:error, term()}
+  def send_password_reset_email(%User{} = user) do
+    user.id
+    |> AuthToken.issue(:reset_password)
+    |> then(&Mailer.deliver(Mailer.password_reset_email(user.email, &1)))
+  end
+
+  @doc "Consumes a verification token, stamping the account verified."
+  @spec verify_email(term()) :: {:ok, User.t()} | {:error, String.t()}
+  def verify_email(token) do
+    case AuthToken.consume(token, :verify_email) do
+      {:ok, user_id} ->
+        case find_by_id(user_id) do
+          nil -> {:error, "account not found"}
+          user -> {:ok, mark_verified(user)}
+        end
+
+      :error ->
+        {:error, "this verification link is invalid or expired"}
+    end
+  end
+
+  @doc """
+  Re-sends a verification link for an unverified address.
+
+  Always resolves `:ok`, whether or not the address exists or is already
+  verified, so the endpoint cannot be used to enumerate accounts.
+  """
+  @spec resend_verification(term()) :: :ok
+  def resend_verification(email) do
+    case find_by_email(email) do
+      %User{email_verified_at: nil} = user -> _ = send_verification_email(user)
+      _ -> :ok
+    end
+
+    :ok
+  end
+
+  @doc """
+  Starts a password reset, uniformly and without revealing whether the address
+  is registered.
+  """
+  @spec request_password_reset(term()) :: :ok
+  def request_password_reset(email) do
+    case find_by_email(email) do
+      nil -> :ok
+      user -> _ = send_password_reset_email(user)
+    end
+
+    :ok
+  end
+
+  @doc """
+  Completes a reset. Validates the new password before burning the token so a
+  too-short entry does not cost the user their link, then clears every session
+  so anyone holding the old password is signed out everywhere.
+  """
+  @spec reset_password(term(), term()) :: {:ok, User.t()} | {:error, String.t()}
+  def reset_password(token, password) do
+    with :ok <- validate_password(password),
+         {:ok, user_id} <- consume_reset_token(token),
+         {:ok, user} <- require_user(user_id) do
+      update_password(user, password)
+    end
+  end
+
+  defp consume_reset_token(token) do
+    case AuthToken.consume(token, :reset_password) do
+      {:ok, user_id} -> {:ok, user_id}
+      :error -> {:error, "this reset link is invalid or expired"}
+    end
+  end
+
+  defp require_user(user_id) do
+    case find_by_id(user_id) do
+      nil -> {:error, "account not found"}
+      user -> {:ok, user}
+    end
+  end
+
+  defp mark_verified(%User{email_verified_at: nil} = user) do
+    user
+    |> Ecto.Changeset.change(email_verified_at: DateTime.utc_now())
+    |> Repo.update!()
+  end
+
+  defp mark_verified(%User{} = user), do: user
+
+  defp update_password(%User{} = user, password) do
+    # Only the hash is stored; a database leak cannot reveal the password.
+    user
+    |> Ecto.Changeset.change(password_hash: hash(password))
+    |> Repo.update!()
+
+    Repo.delete_all(from(s in Session, where: s.user_id == ^user.id))
+    {:ok, user}
+  end
+
+  defp normalize_email(email), do: email |> to_string() |> String.trim() |> String.downcase()
 
   defp resolve_session(session) do
     if DateTime.compare(DateTime.utc_now(), session.expires_at) == :lt do

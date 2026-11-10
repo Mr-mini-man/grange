@@ -201,10 +201,16 @@ releases stay current; there is no separate release migration task.
 
 ### 5.4 Authentication and sessions
 
-- Accounts and sessions live in SQLite (`users`, `sessions`).
-- `POST /api/auth/register` and `POST /api/auth/login` validate credentials,
-  create a session, set an `httpOnly` cookie (`_grange_key`, session key
-  `:user_token`), and return `{ok, user, token}`.
+- Accounts and sessions live in SQLite (`users`, `sessions`, `auth_tokens`).
+- `POST /api/auth/register` validates credentials and creates an **unverified**
+  account. It issues no session; it emails a link and replies
+  `201 {ok: true, pending: true, emailSent, message}` (see
+  [Email verification](#510-email-verification)).
+- `POST /api/auth/login` validates credentials and only creates a session when
+  `users.email_verified_at` is set. An unverified account gets
+  `403 {ok: false, code: "unverified", error}`. Success sets an `httpOnly`
+  cookie (`_grange_key`, session key `:user_token`) and returns
+  `{ok, user, token}`.
 - `GET /api/auth/me` resolves the cookie and returns `{ok, user, token}` or
   `401 {ok: false, error}`.
 - `POST /api/auth/logout` deletes the session row and clears the cookie.
@@ -226,10 +232,15 @@ auth is the `_grange_key` cookie; the socket uses the token instead.
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| POST | `/api/auth/register` | none | `{username, email, password}` → `{ok, user, token}` |
-| POST | `/api/auth/login` | none | `{username, password}` → `{ok, user, token}` |
+| POST | `/api/auth/register` | none | `{username, email, password}` → `201 {ok, pending, emailSent, message}`; no session |
+| POST | `/api/auth/login` | none | `{username, password}` → `{ok, user, token}`; 403 `code: "unverified"` |
+| POST | `/api/auth/verify-email` | none | `{token}` → verifies the email and signs in: `{ok, user, token}` |
+| POST | `/api/auth/resend-verification` | none | `{email}` → always `{ok: true}`; emails a new link |
+| POST | `/api/auth/request-password-reset` | none | `{email}` → always `{ok: true}`; emails a reset link |
+| POST | `/api/auth/reset-password` | none | `{token, password}` → `{ok, user}`; invalidates sessions |
 | GET | `/api/auth/me` | cookie | `{ok, user, token}` or 401 |
 | POST | `/api/auth/logout` | cookie | Destroys the session, clears the cookie |
+| GET | `/api/auth/mailbox` | none | Dev/test only (`enable_test_routes`); returns the console mailer's last message for `?to=` |
 | POST | `/api/economy/transaction` | cookie | `{delta}` integer; clamped at zero |
 | GET | `/api/state` | none | `{playerCount, farmCount}` |
 | POST | `/api/reset` | none | Dev/test only; wipes accounts and farms |
@@ -362,6 +373,39 @@ The train (`TrainController`) animates departures/arrivals and gates boarding.
 Travel destinations and spawn points live in `mapData.ts`,
 `marketplaceData.ts`, and `casinoData.ts`.
 
+### 5.10 Email verification and password reset
+
+New accounts must confirm their email before they can sign in. The same
+single-use token machinery backs both email verification and password reset.
+
+- `users` carries `email_verified_at` (nil until confirmed); a separate
+  `auth_tokens` table holds one-time tokens keyed by `token_hash` with a
+  `purpose` (`verify_email` | `reset_password`) and `expires_at`. Only the
+  SHA-256 hash is stored (same pattern as sessions); verify links live 24 hours,
+  reset links 1 hour. `Grange.AuthToken.issue/2` mints, `consume/2` burns once.
+- `Accounts.send_verification_email/1` and `send_password_reset_email/1` build
+  the message via `Grange.Mailer`; `verify_email/1`, `resend_verification/1`,
+  `request_password_reset/1`, and `reset_password/2` drive the flows.
+  `reset_password/2` clears every session so the old password stops working
+  everywhere.
+- `Grange.Mailer` is a behaviour with two adapters: `Mailer.Console` (default
+  outside production; logs and keeps messages in an Agent so the dev mailbox
+  route can read links back) and `Mailer.Mailtrap` (posts to Mailtrap's REST API
+  over `:httpc`, no extra dependency). The `:mailer` app config picks one;
+  `runtime.exs` selects Mailtrap in prod and auto-detects in dev (override with
+  `GRANGE_MAILER=console|mailtrap`).
+- Mailtrap needs `MAILTRAP_API_TOKEN` and `MAIL_FROM_EMAIL` (`MAIL_FROM_NAME`
+  optional; `MAILTRAP_FROM` accepted as a fallback From). In production the
+  token is a GitHub secret written to `~/grange.env` by `deploy/deploy.sh`.
+  Links use `:app_url` (`APP_URL`, else `https://<PHX_HOST>`).
+- Client flow: `/login` registers then shows a "check your email" notice; the
+  emailed link opens `/verify?token=…`. `/forgot` requests a reset and
+  `/reset?token=…` sets a new password.
+- e2e read the links back through the dev-only `GET /api/auth/mailbox` route
+  (console mailer) via helpers in `e2e/helpers.ts`; `playwright.config.ts` pins
+  `GRANGE_MAILER=console` so a developer's real `.env` credentials do not force
+  actual sending during tests.
+
 ---
 
 ## 6. Repository map
@@ -391,7 +435,7 @@ Travel destinations and spawn points live in `mapData.ts`,
 │   ├── store.ts               ← Zustand game store (user, players, farms)
 │   ├── config.ts              ← version/watermark
 │   ├── useSession.ts          ← session resolution
-│   ├── routes/                ← MainMenu, Login, Dashboard, RequireAuth
+│   ├── routes/                ← MainMenu, Login, VerifyEmail, ForgotPassword, ResetPassword, Dashboard, RequireAuth
 │   ├── inventory/             ← hotbar, inventory modal, item registry, keys
 │   ├── notifications/         ← bottom-left feed store + component
 │   ├── pause/                 ← pause menu overlay + store
@@ -419,7 +463,10 @@ Travel destinations and spawn points live in `mapData.ts`,
 │   ├── lib/grange/
 │   │   ├── application.ex     ← supervision + boot migrations
 │   │   ├── repo.ex            ← Ecto SQLite repo
-│   │   ├── accounts.ex        ← registration/login/sessions/balance
+│   │   ├── accounts.ex        ← registration/login/sessions/password reset
+│   │   ├── auth_token.ex       ← one-time verify/reset tokens
+│   │   ├── mailer.ex           ← mail behaviour + templates
+│   │   ├── mailer/{console,mailtrap}.ex ← dev console / Mailtrap adapters
 │   │   ├── farm_store.ex      ← farm transactions, views, tick, broadcasts
 │   │   ├── farm_ticker.ex     ← 1s GenServer driving FarmStore.tick/0
 │   │   ├── farm.ex            ← pure tile state machine + bounds

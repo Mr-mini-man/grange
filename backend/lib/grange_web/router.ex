@@ -21,6 +21,10 @@ defmodule GrangeWeb.Router do
     post("/auth/login", AuthController, :login)
     post("/auth/logout", AuthController, :logout)
     get("/auth/me", AuthController, :me)
+    post("/auth/verify-email", AuthController, :verify_email)
+    post("/auth/resend-verification", AuthController, :resend_verification)
+    post("/auth/request-password-reset", AuthController, :request_password_reset)
+    post("/auth/reset-password", AuthController, :reset_password)
 
     post("/economy/transaction", EconomyController, :transaction)
 
@@ -30,10 +34,12 @@ defmodule GrangeWeb.Router do
 
     get("/state", HealthController, :state)
 
-    # Test hook: lets e2e runs start from a clean slate. Compiled out of
+    # Test hooks: let e2e runs start from a clean slate and read back the
+    # verification/reset links the console mailer captured. Compiled out of
     # production builds.
     if Application.compile_env(:grange, :enable_test_routes, false) do
       post("/reset", HealthController, :reset)
+      get("/auth/mailbox", AuthController, :mailbox)
     end
   end
 

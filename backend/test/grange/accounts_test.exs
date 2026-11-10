@@ -2,7 +2,7 @@ defmodule Grange.AccountsTest do
   @moduledoc false
   use ExUnit.Case, async: false
 
-  alias Grange.Accounts
+  alias Grange.{Accounts, AuthToken}
 
   setup do
     Accounts.reset()
@@ -50,12 +50,58 @@ defmodule Grange.AccountsTest do
              register(%{"username" => "Bob"})
   end
 
-  test "authenticates with the right password only" do
-    {:ok, user} = register()
+  test "an unverified account cannot authenticate" do
+    {:ok, _user} = register()
 
-    assert {:ok, ^user} = Accounts.authenticate("Alice", "harvest-please")
+    assert {:error, :unverified} = Accounts.authenticate("Alice", "harvest-please")
+  end
+
+  test "authenticates with the right password only once verified" do
+    {:ok, user} = register()
+    {:ok, _} = Accounts.verify_email(AuthToken.issue(user.id, :verify_email))
+
+    assert {:ok, verified} = Accounts.authenticate("Alice", "harvest-please")
+    assert verified.id == user.id
     assert {:error, "invalid username or password"} = Accounts.authenticate("Alice", "wrong")
     assert {:error, "invalid username or password"} = Accounts.authenticate("Nobody", "whatever")
+  end
+
+  test "verify_email is single-use and stamps the account" do
+    {:ok, user} = register()
+    token = AuthToken.issue(user.id, :verify_email)
+
+    assert {:ok, verified} = Accounts.verify_email(token)
+    assert verified.email_verified_at
+
+    assert {:error, "this verification link is invalid or expired"} =
+             Accounts.verify_email(token)
+
+    assert {:error, _} = Accounts.verify_email("bogus")
+  end
+
+  test "reset_password validates before spending the link and clears sessions" do
+    {:ok, user} = register()
+    {:ok, _} = Accounts.verify_email(AuthToken.issue(user.id, :verify_email))
+    session = Accounts.create_session(user.id)
+
+    token = AuthToken.issue(user.id, :reset_password)
+    assert {:error, message} = Accounts.reset_password(token, "short")
+    assert message =~ "at least 8"
+
+    # The too-short attempt did not burn the link.
+    assert {:ok, _} = Accounts.reset_password(token, "brand-new-pass")
+
+    assert :error = Accounts.resolve_token(session)
+    assert {:ok, _} = Accounts.authenticate("Alice", "brand-new-pass")
+  end
+
+  test "resend and reset requests are uniform" do
+    {:ok, _user} = register()
+
+    assert :ok = Accounts.resend_verification("alice@example.test")
+    assert :ok = Accounts.resend_verification("nobody@example.test")
+    assert :ok = Accounts.request_password_reset("alice@example.test")
+    assert :ok = Accounts.request_password_reset("nobody@example.test")
   end
 
   test "session tokens resolve to the user and can be destroyed" do

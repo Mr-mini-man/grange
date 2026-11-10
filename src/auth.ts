@@ -7,6 +7,12 @@ import { economy } from "./world/EconomyManager";
 export interface AuthResponse {
 	ok: boolean;
 	error?: string;
+	/** Machine-readable reason for some failures, e.g. "unverified". */
+	code?: string;
+	/** Registration succeeded but the account still needs email verification. */
+	pending?: boolean;
+	emailSent?: boolean;
+	message?: string;
 	user?: AuthUser;
 	token?: string;
 }
@@ -120,12 +126,16 @@ export async function saveBalanceDelta(delta: number): Promise<void> {
 	}
 }
 
+/**
+ * Creates an account. No session is issued: the account stays locked until the
+ * emailed verification link is opened.
+ */
 export async function register(input: {
 	username: string;
 	email: string;
 	password: string;
 }): Promise<AuthResponse> {
-	return accept((await post("/register", input)).data);
+	return (await post("/register", input)).data;
 }
 
 export async function login(input: {
@@ -143,6 +153,28 @@ export async function logout(): Promise<void> {
 	useInventoryStore.getState().resetInventory();
 	setAuthToken(null);
 	rebindAuth();
+}
+
+/** Completes signup; the server starts a session on success. */
+export async function verifyEmail(token: string): Promise<AuthResponse> {
+	return accept((await post("/verify-email", { token })).data);
+}
+
+export async function resendVerification(email: string): Promise<AuthResponse> {
+	return (await post("/resend-verification", { email })).data;
+}
+
+export async function requestPasswordReset(
+	email: string,
+): Promise<AuthResponse> {
+	return (await post("/request-password-reset", { email })).data;
+}
+
+export async function resetPassword(
+	token: string,
+	password: string,
+): Promise<AuthResponse> {
+	return (await post("/reset-password", { token, password })).data;
 }
 
 /** Resolves the session on page load. Returns null when there is no valid session. */
