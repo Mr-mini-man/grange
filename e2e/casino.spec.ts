@@ -67,13 +67,8 @@ test("poker posts the blinds and deals hole cards", async ({ page }) => {
 test("roulette takes a bet and settles a spin", async ({ page }) => {
 	await registerFast(page, uniqueName("Punter"), CASINO);
 
-	// Reach is capped at MAX_INTERACTION_DISTANCE, so a diagonal walk never
-	// gets close enough to the roulette table. Anchor the row on the blackjack
-	// table first, ease up to its top edge, then walk east into the narrower
-	// roulette radius.
-	await walkUntilPrompt(page, ["s"], "play blackjack", 20_000);
-	await holdKeys(page, ["s"], 150);
-	await walkUntilPrompt(page, ["d"], "play roulette", 20_000);
+	// Roulette is east, past the blackjack table.
+	await walkUntilPrompt(page, ["d", "s"], "play roulette", 20_000);
 	await useDoor(page);
 
 	const roulette = page.getByTestId("roulette-overlay");
@@ -106,15 +101,9 @@ test("roulette takes a bet and settles a spin", async ({ page }) => {
 test("slots spin a bet and auto-spin several rounds", async ({ page }) => {
 	await registerFast(page, uniqueName("Spinner"), CASINO);
 
-	// Slots sit along the bottom-left wall. With reach capped at
-	// MAX_INTERACTION_DISTANCE the old diagonal barely misses, so slide west
-	// past the tables, drop below them, then line up under the middle machine
-	// before stepping down into its radius. The hold distances are scaled for
-	// the 3x e2e walk speed.
-	await holdKeys(page, ["a"], 350);
-	await holdKeys(page, ["s"], 680);
-	await holdKeys(page, ["a"], 370);
-	await walkUntilPrompt(page, ["s"], "play the slots", 20_000);
+	// Slots run along the bottom wall. The diagonal from spawn enters their
+	// wide radius before reaching the bottom wall, so overshooting is harmless.
+	await walkUntilPrompt(page, ["a", "s"], "play the slots", 20_000);
 	await useDoor(page);
 
 	const slots = page.getByTestId("slots-overlay");

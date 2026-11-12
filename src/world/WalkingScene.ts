@@ -39,8 +39,8 @@ export interface SceneSpawn {
 export interface SceneInteraction {
 	position: ex.Vector;
 	prompt: string;
-	/** Preferred reach, capped at MAX_INTERACTION_DISTANCE so players must be
-	 * close to their target rather than interacting across the room. */
+	/** How close the player must stand for the prompt to show. Defaults to
+	 * MAX_INTERACTION_DISTANCE; large objects may declare a wider reach. */
 	radius?: number;
 	/** Controls whether the prompt shows; omit to always allow. */
 	canInteract?: () => boolean;
@@ -193,7 +193,7 @@ export abstract class WalkingScene extends ex.Scene<SceneActivationData> {
 			(candidate) =>
 				(candidate.canInteract?.() ?? true) &&
 				this.player.pos.distance(candidate.position) <=
-					Math.min(candidate.radius ?? MAX_INTERACTION_DISTANCE, MAX_INTERACTION_DISTANCE),
+					(candidate.radius ?? MAX_INTERACTION_DISTANCE),
 		);
 		this.setPrompt(interaction?.prompt ?? null);
 		if (interaction && this.inputManager.consumePress("KeyE", "Enter")) {
