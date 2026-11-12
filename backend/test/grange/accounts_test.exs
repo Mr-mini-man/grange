@@ -114,4 +114,54 @@ defmodule Grange.AccountsTest do
     assert {:error, _} = Accounts.apply_balance_delta(user.id, 1.5)
     assert {:error, _} = Accounts.apply_balance_delta("missing", 10)
   end
+
+  test "register_admin creates an admin with an effectively unlimited balance" do
+    assert {:ok, user} =
+             Accounts.register_admin(%{
+               "username" => "Root",
+               "email" => "root@example.test",
+               "password" => "harvest-please"
+             })
+
+    assert user.is_admin
+    assert user.balance == 1_000_000_000
+
+    decoded = user |> Jason.encode!() |> Jason.decode!()
+    assert decoded["is_admin"] == true
+    assert decoded["balance"] == 1_000_000_000
+  end
+
+  test "admins never spend down their balance, but can still earn" do
+    {:ok, user} =
+      Accounts.register_admin(%{
+        "username" => "Root",
+        "email" => "root@example.test",
+        "password" => "harvest-please"
+      })
+
+    assert {:ok, 1_000_000_000} = Accounts.apply_balance_delta(user.id, -500)
+    assert {:ok, 1_000_000_050} = Accounts.apply_balance_delta(user.id, 50)
+  end
+
+  test "grant_admin promotes an existing account and tops up its balance" do
+    {:ok, user} = register()
+    refute user.is_admin
+
+    assert {:ok, promoted} = Accounts.grant_admin("Alice")
+    assert promoted.id == user.id
+    assert promoted.is_admin
+    assert promoted.balance == 1_000_000_000
+
+    assert {:error, "unknown user"} = Accounts.grant_admin("Nobody")
+  end
+
+  test "grant_admin can reset the password so the login is known" do
+    {:ok, _user} = register()
+
+    assert {:ok, promoted} = Accounts.grant_admin("Alice", "brand-new-pass")
+    assert promoted.is_admin
+
+    assert {:ok, _} = Accounts.authenticate("Alice", "brand-new-pass")
+    assert {:error, _} = Accounts.authenticate("Alice", "harvest-please")
+  end
 end

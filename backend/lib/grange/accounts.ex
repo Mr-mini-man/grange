@@ -18,6 +18,9 @@ defmodule Grange.Accounts do
   @token_bytes 32
   @ttl_seconds 30 * 24 * 60 * 60
   @lobby_topic "lobby"
+  # Admins are seeded with a balance large enough to read as "unlimited" for
+  # any in-game price; debits against it are ignored (see apply_balance_delta/2).
+  @admin_balance 1_000_000_000
 
   @spec register(map()) :: {:ok, User.t()} | {:error, String.t()}
   def register(attrs) do
@@ -92,6 +95,10 @@ defmodule Grange.Accounts do
       nil ->
         {:error, "unknown user"}
 
+      %User{is_admin: true} = user when delta < 0 ->
+        # Admins draw on effective infinity: a debit never lowers the balance.
+        {:ok, user.balance}
+
       %User{} = user ->
         # Spend/earn delta, clamped at zero so a balance can never go negative.
         balance = max(0, user.balance + delta)
@@ -101,6 +108,36 @@ defmodule Grange.Accounts do
   end
 
   def apply_balance_delta(_user_id, _delta), do: {:error, "delta must be an integer"}
+
+  @doc """
+  Registers an account and promotes it to admin.
+
+  Admins are handed the whole item catalog by the SPA and are given a balance
+  large enough to be effectively unlimited. Used by `mix grange.create_admin`.
+  """
+  @spec register_admin(map()) :: {:ok, User.t()} | {:error, String.t()}
+  def register_admin(attrs) do
+    case register(attrs) do
+      {:ok, user} -> promote(user, nil)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc "Promotes an existing account to admin by username."
+  @spec grant_admin(String.t()) :: {:ok, User.t()} | {:error, String.t()}
+  def grant_admin(username), do: grant_admin(username, nil)
+
+  @doc """
+  Promotes an existing account to admin, optionally resetting its password so
+  the operator always ends up with a login they know.
+  """
+  @spec grant_admin(String.t(), String.t() | nil) :: {:ok, User.t()} | {:error, String.t()}
+  def grant_admin(username, password) do
+    case Repo.get_by(User, username: username) do
+      nil -> {:error, "unknown user"}
+      %User{} = user -> promote(user, password)
+    end
+  end
 
   @spec reset() :: :ok
   def reset do
@@ -131,6 +168,25 @@ defmodule Grange.Accounts do
 
       {:error, changeset} ->
         {:error, error_message(changeset)}
+    end
+  end
+
+  # Grants admin rights and tops the balance up to the admin floor. Promotion
+  # only ever raises the balance, so promoting an account never takes money away.
+  # A password, when given, is rehashed and stored so the login is known.
+  defp promote(user, password) do
+    balance = max(user.balance, @admin_balance)
+
+    changes =
+      if password do
+        %{is_admin: true, balance: balance, password_hash: hash(password)}
+      else
+        %{is_admin: true, balance: balance}
+      end
+
+    case user |> Ecto.Changeset.change(changes) |> Repo.update() do
+      {:ok, user} -> {:ok, user}
+      {:error, changeset} -> {:error, error_message(changeset)}
     end
   end
 

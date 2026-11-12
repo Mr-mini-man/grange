@@ -39,6 +39,7 @@ async function accept(data: AuthResponse): Promise<AuthResponse> {
 		// The account owns the balance; adopt it so a fresh account starts at
 		// the opening amount instead of inheriting the previous session's total.
 		economy.setBalance(data.user.balance);
+		economy.setAdmin(data.user.is_admin);
 		setAuthToken(data.token ?? null);
 		rebindAuth();
 		invalidateInventoryFetch();
@@ -141,6 +142,7 @@ export async function logout(): Promise<void> {
 	useGameStore.getState().clearUser();
 	// Drop any admin-granted inventory so it cannot leak to the next sign-in.
 	useInventoryStore.getState().resetInventory();
+	economy.setAdmin(false);
 	setAuthToken(null);
 	rebindAuth();
 }
@@ -159,6 +161,7 @@ export async function fetchMe(): Promise<AuthUser | null> {
 	};
 	useGameStore.getState().setUser(user);
 	economy.setBalance(user.balance);
+	economy.setAdmin(user.is_admin);
 	setAuthToken(token);
 	rebindAuth();
 	invalidateInventoryFetch();
