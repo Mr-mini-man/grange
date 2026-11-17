@@ -2,7 +2,7 @@ defmodule Grange.BankLandTest do
   @moduledoc false
   use ExUnit.Case, async: false
 
-  alias Grange.{Accounts, Bank, FarmStore, Land}
+  alias Grange.{Accounts, Bank, BankInterest, FarmStore, Land, Repo, User}
 
   setup do
     Accounts.reset()
@@ -52,5 +52,27 @@ defmodule Grange.BankLandTest do
   test "one farm cannot buy land for another", %{user: user} do
     FarmStore.ensure("Other")
     assert {:error, "not your farm"} = Land.buy(user.id, "Other")
+  end
+
+  test "savings accrue tiered interest once a whole day has passed", %{user: user} do
+    assert {:ok, _} = Accounts.apply_balance_delta(user.id, 1_000)
+
+    assert {:ok, %{bank_balance: 1_000, interest_rate: 4}} =
+             Bank.transfer(user.id, "deposit", 1_000)
+
+    backdate(user.id, BankInterest.day_ms())
+
+    assert {:ok, view} = Bank.view(user.id)
+    assert view.bank_balance == 1_040
+    assert view.interest_rate == 4
+    assert view.next_tier == %{min_balance: 2_000, rate: 7}
+
+    # The accrued interest is persisted, not just returned.
+    assert Repo.get(User, user.id).bank_balance == 1_040
+  end
+
+  defp backdate(user_id, ms) do
+    user = Repo.get(User, user_id)
+    Repo.update!(Ecto.Changeset.change(user, bank_interest_at: user.bank_interest_at - ms))
   end
 end

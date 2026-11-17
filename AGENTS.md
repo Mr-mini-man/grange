@@ -600,7 +600,7 @@ single-use token machinery backs both email verification and password reset.
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `users` | `id` string PK, `username` unique, `email` unique, `password_hash`, `balance` default 100, `is_admin` default false, `inserted_at` | IDs are 32-char lowercase hex strings. No `updated_at`. |
+| `users` | `id` string PK, `username` unique, `email` unique, `password_hash`, `balance` default 100, `bank_balance` default 0, `bank_interest_at` epoch ms, `is_admin` default false, `inserted_at` | IDs are 32-char lowercase hex strings. No `updated_at`. `bank_interest_at` is nil until the account first touches the bank. |
 | `sessions` | `token_hash` string PK, `user_id` FK → `users.id`, `expires_at`, `inserted_at` | Only the SHA-256 hash is stored. |
 | `farms` | `owner` string PK (username), `tomatoes` legacy integer, `fence_count` default 20, `gate_count` default 2, `storage` JSON map default `{}`, `sprinkler_count` default 0, `is_public` default false, `visitor_edit` default false, timestamps | Owner is the **username**, not `users.id`. Settings default to private/read-only. `storage` is the barn-storage container (`BarnStorage`), separate from `barn_items`. |
 | `tiles` | `id`, `owner` FK → `farms.owner`, `x`, `y`, `state` string, `crop` string, `planted_at`/`watered_at`/`ready_at`/`tilled_at` integer ms | Unique `(owner, x, y)`. `state` is one of `tilled`, `planted`, `watered`, `ready`. `tilled_at` is set while the tile is bare `tilled` ground so `FarmTick` can revert abandoned soil to grass. |
@@ -875,6 +875,30 @@ the client repaints it as grass.
   the updated farm. `tilled_at` is server-only and is not sent over the wire.
 - The server owns the rule; the client only repaints what `farmUpdate`
   delivers.
+
+### 8.8 Bank interest
+
+Money left in the savings bank grows. `Grange.BankInterest` owns the rule and
+`Grange.Bank` applies it.
+
+- The daily rate rises with the deposited balance and is **capped at 10%**.
+  Tiers (minimum balance → percent per day): `$0 → 1%`, `$100 → 2%`,
+  `$500 → 4%`, `$2,000 → 7%`, `$10,000 → 10%`. The highest matching tier wins.
+- Interest compounds once per **whole day** of wall-clock time
+  (`:bank_day_ms`, 24 hours by default). Interest for a partial day is held over,
+  not lost.
+- Accrual is **lazy and server-authoritative**: there is no per-user timer.
+  `Bank.transfer/3` and `Bank.view/1` compound every whole day that has elapsed
+  since `users.bank_interest_at` and persist the new balance, so a player earns
+  for the time they were away even if they only open the bank once.
+- A nil `bank_interest_at` (fresh account) starts the clock without
+  back-dating interest, and a transfer never resets the clock, so a deposit made
+  mid-day keeps its elapsed fraction.
+- `/api/bank/balance` returns `{balance, bank_balance, interest_rate, next_tier}`
+  and both bank endpoints apply interest before replying. The teller overlay
+  shows the current daily rate and the next tier. `next_tier` is `nil` at the cap.
+- The rates live only in Elixir; the client displays what the server sends, so
+  there is no TS mirror to keep in sync.
 
 ---
 

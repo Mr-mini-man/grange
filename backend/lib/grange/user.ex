@@ -14,6 +14,7 @@ defmodule Grange.User do
     field(:password_hash, :string)
     field(:balance, :integer, default: @starting_balance)
     field(:bank_balance, :integer, default: 0)
+    field(:bank_interest_at, :integer)
     field(:email_verified_at, :utc_datetime_usec)
     field(:is_admin, :boolean, default: false)
     timestamps(type: :utc_datetime_usec, updated_at: false)
@@ -27,6 +28,7 @@ defmodule Grange.User do
           inserted_at: DateTime.t() | nil,
           balance: non_neg_integer(),
           bank_balance: non_neg_integer(),
+          bank_interest_at: integer() | nil,
           email_verified_at: DateTime.t() | nil,
           is_admin: boolean()
         }

@@ -6,11 +6,8 @@ defmodule GrangeWeb.BankController do
 
   def balance(conn, _params) do
     case signed_in(conn) do
-      {:ok, user} ->
-        json(conn, %{ok: true, balance: user.balance, bank_balance: user.bank_balance})
-
-      :error ->
-        unauthorized(conn)
+      {:ok, user} -> reply(conn, Bank.view(user.id))
+      :error -> unauthorized(conn)
     end
   end
 

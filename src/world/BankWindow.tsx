@@ -8,20 +8,35 @@ import "./bank.css";
 
 interface Props { desk: BankDesk; isOwner: boolean; onClose: () => void }
 
+interface BankTier { min_balance: number; rate: number }
+interface BankInfo {
+	ok: boolean; error?: string; balance?: number; bank_balance?: number;
+	interest_rate?: number; next_tier?: BankTier | null; land_level?: number;
+}
+
 export function BankWindow({ desk, isOwner, onClose }: Props) {
 	const wallet = useEconomyBalance();
 	const landLevel = useGameStore((state) => state.activeFarm?.land_level ?? 0);
 	const [savings, setSavings] = useState(0);
+	const [interest, setInterest] = useState(0);
+	const [nextTier, setNextTier] = useState<BankTier | null>(null);
 	const [amount, setAmount] = useState("10");
 	const [message, setMessage] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const price = LAND_PRICES[landLevel];
 
+	function applyInfo(data: BankInfo) {
+		if (data.interest_rate !== undefined) setInterest(data.interest_rate);
+		if (data.next_tier !== undefined) setNextTier(data.next_tier);
+	}
+
 	useEffect(() => {
 		void fetch("/api/bank/balance", { credentials: "same-origin" })
 			.then((response) => response.json())
-			.then((data: { ok: boolean; bank_balance?: number }) => {
+			.then((data: BankInfo) => {
 				if (data.ok && data.bank_balance !== undefined) setSavings(data.bank_balance);
+				if (data.interest_rate !== undefined) setInterest(data.interest_rate);
+				if (data.next_tier !== undefined) setNextTier(data.next_tier);
 			})
 			.catch(() => setMessage("Could not reach the bank."));
 	}, []);
@@ -52,15 +67,14 @@ export function BankWindow({ desk, isOwner, onClose }: Props) {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(kind === "land" ? {} : { direction: kind, amount: value }),
 			});
-			const result = await response.json() as {
-				ok: boolean; error?: string; balance?: number; bank_balance?: number; land_level?: number;
-			};
+			const result = await response.json() as BankInfo;
 			if (!response.ok || !result.ok || result.balance === undefined) {
 				setMessage(result.error ?? "Transaction failed.");
 				return;
 			}
 			economy.setBalance(result.balance);
 			if (result.bank_balance !== undefined) setSavings(result.bank_balance);
+			applyInfo(result);
 			if (result.land_level !== undefined) {
 				const state = useGameStore.getState();
 				if (state.activeFarm) state.setActiveFarm({ ...state.activeFarm,
@@ -81,6 +95,11 @@ export function BankWindow({ desk, isOwner, onClose }: Props) {
 		<img src={`/assets/marketplace/bank/${desk}.webp`} alt="" />
 		<h2>{desk === "mayor" ? "Mayor · Land Office" : "Bank Teller"}</h2>
 		<p>Wallet: ${wallet}{desk === "teller" && ` · Savings: $${savings}`}</p>
+		{desk === "teller" && <p className="bank-interest">
+			Earning {interest}% daily{nextTier
+				? ` · $${nextTier.min_balance}+ earns ${nextTier.rate}%`
+				: " · top rate reached"}
+		</p>}
 		{desk === "teller" ? <>
 			<label htmlFor="bank-amount">Amount</label>
 			<input id="bank-amount" type="number" min="1" step="1" value={amount}

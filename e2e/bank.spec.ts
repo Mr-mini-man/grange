@@ -24,6 +24,7 @@ test("the bank has teller and mayor desks, with saved money and land purchases",
 	await teller.getByLabel("Amount").fill("20");
 	await teller.getByRole("button", { name: "Deposit" }).click();
 	await expect(teller).toContainText("Savings: $20");
+	await expect(teller).toContainText("Earning 1% daily");
 	await teller.getByRole("button", { name: "Withdraw" }).click();
 	await expect(teller).toContainText("Savings: $0");
 	await page.keyboard.press("Escape");

@@ -5,6 +5,10 @@ config :grange, ecto_repos: [Grange.Repo]
 # Crops ripen on a timer in dev/prod; tests drive `FarmStore.tick/1` directly.
 config :grange, start_ticker: true
 
+# Savings earn tiered daily interest (capped at 10%). One "day" is 24 hours of
+# wall-clock time; the rate table lives in `Grange.BankInterest`.
+config :grange, bank_day_ms: 86_400_000
+
 config :grange, GrangeWeb.Endpoint,
   adapter: Bandit.PhoenixAdapter,
   url: [host: "localhost"],
