@@ -1,4 +1,5 @@
 import { CROPS, type CropId } from "../../shared/crops";
+import type { TrainUpgradeId } from "../../shared/train";
 import { ITEMS, type ItemId } from "../inventory/items";
 import {
 	FISH,
@@ -8,9 +9,10 @@ import {
 	ROD_ORDER,
 	type RodId,
 } from "./fishingData";
+import { TRAIN_MARKET_ITEMS } from "./trainDepotData";
 
 /** The market stalls placed in the marketplace. */
-export type MarketId = "seed" | "produce" | "hardware";
+export type MarketId = "seed" | "produce" | "hardware" | "train-depot";
 
 /** A buy/sell tab shown inside a market window. */
 export type MarketCategoryId =
@@ -46,7 +48,8 @@ export type MarketItemId =
 	| "fence"
 	| "gate"
 	| FishId
-	| RodId;
+	| RodId
+	| TrainUpgradeId;
 
 export interface MarketItem {
 	id: MarketItemId;
@@ -153,6 +156,7 @@ export const MARKET_ITEMS = {
 	shovel: toolItem("shovel", "🧹", 40, "Dig up fences and objects."),
 	fence: toolItem("fence", "🪵", 5, "Click grass to place a fence post."),
 	gate: toolItem("gate", "🚪", 25, "Click grass to place a gate."),
+	...TRAIN_MARKET_ITEMS,
 	...Object.fromEntries(FISH_ORDER.map((id) => [id, fishItem(id)])),
 	...Object.fromEntries(ROD_ORDER.map((id) => [id, rodItem(id)])),
 } as Record<MarketItemId, MarketItem>;
@@ -185,8 +189,8 @@ export const MARKET_CATEGORIES: Record<MarketCategoryId, MarketCategory> = {
 	train: {
 		id: "train",
 		label: "Train",
-		description: "Buy train carts and upgrades.",
-		items: [],
+		description: "Upgrade your engine and cargo carts.",
+		items: ["train-engine", "train-cart", "train-cart-upgrade"],
 		slots: 6,
 	},
 	sell: {
@@ -258,7 +262,7 @@ export const MARKETS: Record<MarketId, MarketDefinition> = {
 	produce: {
 		id: "produce",
 		title: "Produce Market",
-		categories: ["sell", "fish", "rods", "tools", "train"],
+		categories: ["sell", "fish", "rods", "tools"],
 		defaultCategory: "sell",
 	},
 	hardware: {
@@ -266,6 +270,12 @@ export const MARKETS: Record<MarketId, MarketDefinition> = {
 		title: "Hardware Store",
 		categories: ["equipment", "build", "supplies"],
 		defaultCategory: "equipment",
+	},
+	"train-depot": {
+		id: "train-depot",
+		title: "Train Depot",
+		categories: ["train"],
+		defaultCategory: "train",
 	},
 };
 

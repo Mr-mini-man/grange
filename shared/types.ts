@@ -44,6 +44,36 @@ export interface FarmSprinkler {
 	y: number;
 }
 
+/** One cargo cart coupled behind the train's engine. */
+export interface TrainCart {
+	/** Stable coupling slot (1-based, left-to-right); cargo is keyed by it. */
+	index: number;
+	/** Cart tier, 1..3; a higher tier holds more distinct item stacks. */
+	tier: number;
+	/** How many distinct item stacks the cart can hold at once. */
+	capacity: number;
+	/** Item id -> count currently loaded into this cart. */
+	cargo: Record<string, number>;
+}
+
+/** The owner's train: engine upgrade level plus the coupled carts. */
+export interface TrainView {
+	/** Engine tier, 0..3. Higher tiers go faster and pull more carts. */
+	engine: number;
+	/** How many carts the current engine can pull. */
+	max_carts: number;
+	carts: TrainCart[];
+}
+
+/** A deposit into or withdrawal from one of the train's carts. */
+export interface TrainAction {
+	kind: "deposit" | "withdraw";
+	item: string;
+	count: number;
+	/** Withdraw only: the cart index to take the item from. */
+	cart?: number;
+}
+
 /** The full field and barn inventory for one farm. */
 export interface ActiveFarm {
 	owner: string;
@@ -76,6 +106,8 @@ export interface ActiveFarm {
 	}>;
 	prop_inventory: Record<string, number>;
 	storage: Record<string, number>;
+	/** The owner's train upgrades and cargo carts. */
+	train?: TrainView;
 }
 
 export type FarmPropAction =

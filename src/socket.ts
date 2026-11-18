@@ -7,6 +7,7 @@ import type {
 	FarmPropAction,
 	FarmSummary,
 	Player,
+	TrainAction,
 } from "../shared/types";
 import { countItem, useInventoryStore } from "./inventory/inventoryStore";
 import { reconcileServerItems } from "./inventory/itemSync";
@@ -274,11 +275,17 @@ export function emitFarmAction(
 		.receive("timeout", () => cb?.({ ok: false, error: "Timed out" }));
 }
 
-/** Open/close a gate. Unlike farm actions, visitors may call this. */
-export function emitGateAction(
+/**
+ * Pushes a fire-and-forget farm event: `:ok` acks as success, errors carry the
+ * server reason (or `fallbackError`). Shared by the gate/prop/sell/barn/train
+ * events, which all have the same owner guard and ack handling.
+ */
+function pushFarmAck(
 	owner: string,
-	action: FarmGateAction,
+	event: string,
+	payload: Record<string, unknown>,
 	cb?: (res: Ack) => void,
+	fallbackError = "Action failed",
 ): void {
 	const channel = farmChannel;
 	if (!channel || farmOwner !== owner) {
@@ -286,12 +293,21 @@ export function emitGateAction(
 		return;
 	}
 	channel
-		.push("gateAction", { action })
+		.push(event, payload)
 		.receive("ok", () => cb?.({ ok: true }))
-		.receive("error", (payload: unknown) =>
-			cb?.({ ok: false, error: reasonOf(payload) ?? "Could not move gate" }),
+		.receive("error", (reply: unknown) =>
+			cb?.({ ok: false, error: reasonOf(reply) ?? fallbackError }),
 		)
 		.receive("timeout", () => cb?.({ ok: false, error: "Timed out" }));
+}
+
+/** Open/close a gate. Unlike farm actions, visitors may call this. */
+export function emitGateAction(
+	owner: string,
+	action: FarmGateAction,
+	cb?: (res: Ack) => void,
+): void {
+	pushFarmAck(owner, "gateAction", { action }, cb, "Could not move gate");
 }
 
 export function emitFarmPropAction(
@@ -299,18 +315,7 @@ export function emitFarmPropAction(
 	action: FarmPropAction,
 	cb?: (res: Ack) => void,
 ): void {
-	const channel = farmChannel;
-	if (!channel || farmOwner !== owner) {
-		cb?.({ ok: false, error: "not visiting farm" });
-		return;
-	}
-	channel
-		.push("farmPropAction", { action })
-		.receive("ok", () => cb?.({ ok: true }))
-		.receive("error", (payload: unknown) =>
-			cb?.({ ok: false, error: reasonOf(payload) ?? "Invalid object action" }),
-		)
-		.receive("timeout", () => cb?.({ ok: false, error: "Timed out" }));
+	pushFarmAck(owner, "farmPropAction", { action }, cb, "Invalid object action");
 }
 
 /** Sells a produce item from the visited farm's barn back to the market. */
@@ -320,19 +325,7 @@ export function emitSellProduce(
 	count: number,
 	cb?: (res: Ack) => void,
 ): void {
-	const channel = farmChannel;
-	if (!channel || farmOwner !== owner) {
-		cb?.({ ok: false, error: "not visiting farm" });
-		return;
-	}
-
-	channel
-		.push("sellProduce", { item, count })
-		.receive("ok", () => cb?.({ ok: true }))
-		.receive("error", (payload: unknown) =>
-			cb?.({ ok: false, error: reasonOf(payload) ?? "Could not sell" }),
-		)
-		.receive("timeout", () => cb?.({ ok: false, error: "Timed out" }));
+	pushFarmAck(owner, "sellProduce", { item, count }, cb, "Could not sell");
 }
 
 /** Deposits into or withdraws from the visited farm's barn storage. */
@@ -341,19 +334,16 @@ export function emitBarnAction(
 	action: BarnAction,
 	cb?: (res: Ack) => void,
 ): void {
-	const channel = farmChannel;
-	if (!channel || farmOwner !== owner) {
-		cb?.({ ok: false, error: "not visiting farm" });
-		return;
-	}
+	pushFarmAck(owner, "barnAction", { action }, cb, "Could not update the barn");
+}
 
-	channel
-		.push("barnAction", { action })
-		.receive("ok", () => cb?.({ ok: true }))
-		.receive("error", (payload: unknown) =>
-			cb?.({ ok: false, error: reasonOf(payload) ?? "Could not update the barn" }),
-		)
-		.receive("timeout", () => cb?.({ ok: false, error: "Timed out" }));
+/** Loads cargo into or unloads it from the visited farm's train carts. */
+export function emitTrainAction(
+	owner: string,
+	action: TrainAction,
+	cb?: (res: Ack) => void,
+): void {
+	pushFarmAck(owner, "trainAction", { action }, cb, "Could not update the train");
 }
 
 /** Registers global handlers and opens the lobby channel. */

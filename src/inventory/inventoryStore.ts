@@ -56,6 +56,8 @@ interface InventoryState {
 	selectedHotbar: number;
 	inventoryOpen: boolean;
 	barnOpen: boolean;
+	/** True while the train cargo window owns the screen. */
+	trainCargoOpen: boolean;
 	/** True once the account's full inventory snapshot has been applied (or failed). */
 	inventoryHydrated: boolean;
 	/** True only when the last snapshot came from the server. */
@@ -64,6 +66,7 @@ interface InventoryState {
 	setInventoryOpen: (open: boolean) => void;
 	toggleInventory: () => void;
 	setBarnOpen: (open: boolean) => void;
+	setTrainCargoOpen: (open: boolean) => void;
 	moveStack: (from: SlotRef, to: SlotRef) => void;
 	/** Sends a stack to the other area (hotbar <-> grid), topping up existing
 	 *  partial stacks of the same item first, then the first empty slot.
@@ -92,6 +95,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
 	selectedHotbar: 0,
 	inventoryOpen: false,
 	barnOpen: false,
+	trainCargoOpen: false,
 	inventoryHydrated: false,
 	inventorySynced: false,
 
@@ -103,6 +107,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
 	setInventoryOpen: (open) => set({ inventoryOpen: open }),
 	toggleInventory: () => set((s) => ({ inventoryOpen: !s.inventoryOpen })),
 	setBarnOpen: (open) => set({ barnOpen: open }),
+	setTrainCargoOpen: (open) => set({ trainCargoOpen: open }),
 
 	moveStack: (from, to) => {
 		if (from.area === to.area && from.index === to.index) return;
@@ -305,6 +310,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
 			selectedHotbar: 0,
 			inventoryOpen: false,
 			barnOpen: false,
+			trainCargoOpen: false,
 			inventoryHydrated: false,
 			inventorySynced: false,
 		}),
@@ -318,6 +324,7 @@ export function isInventoryBlockingInput(): boolean {
 	return (
 		useInventoryStore.getState().inventoryOpen ||
 		useInventoryStore.getState().barnOpen ||
+		useInventoryStore.getState().trainCargoOpen ||
 		usePauseStore.getState().paused
 	);
 }

@@ -122,7 +122,6 @@ test("the market stalls open their buy and sell views", async ({ page }) => {
 	await expect(page.getByTestId("market-subtab-fish")).toBeVisible();
 	await expect(page.getByTestId("market-subtab-rods")).toBeVisible();
 	await expect(page.getByTestId("market-subtab-tools")).toBeVisible();
-	await expect(page.getByTestId("market-subtab-train")).toBeVisible();
 	await expect(page.getByTestId("market-item-tomato")).toContainText("TOMATO");
 	await expect(page.getByTestId("market-item-midas_wheat")).toContainText(
 		"MIDAS WHEAT",
@@ -134,7 +133,7 @@ test("the market stalls open their buy and sell views", async ({ page }) => {
 	await expect(page.getByTestId("market-sell-tomato")).toBeDisabled();
 	await expect(page.getByTestId("market-sellall-tomato")).toBeDisabled();
 
-	// Secondary tabs keep the fish/rods/tools/train stock for now.
+	// Secondary tabs keep the fish/rods/tools stock for now.
 	await page.getByTestId("market-subtab-fish").click();
 	await expect(page.locator(".market-generic-grid")).toBeVisible();
 	await page.getByTestId("market-subtab-tools").click();

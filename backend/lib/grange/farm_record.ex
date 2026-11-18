@@ -20,6 +20,9 @@ defmodule Grange.FarmRecord do
     field(:land_level, :integer, default: 0)
     field(:is_public, :boolean, default: false)
     field(:visitor_edit, :boolean, default: false)
+    field(:train_engine, :integer, default: 0)
+    field(:train_carts, :map, default: %{})
+    field(:train_cargo, :map, default: %{})
     has_many(:tiles, Grange.Tile, foreign_key: :owner, references: :owner)
     has_many(:barn_items, Grange.BarnItem, foreign_key: :owner, references: :owner)
     timestamps(type: :utc_datetime_usec)
@@ -36,6 +39,9 @@ defmodule Grange.FarmRecord do
           land_level: non_neg_integer(),
           is_public: boolean(),
           visitor_edit: boolean(),
+          train_engine: non_neg_integer(),
+          train_carts: map(),
+          train_cargo: map(),
           tiles: [Grange.Tile.t()] | Ecto.Association.NotLoaded.t(),
           barn_items: [Grange.BarnItem.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil,

@@ -3,6 +3,7 @@ import { usePauseStore } from "../pause/pauseStore";
 import { BarnOverlay } from "../world/BarnOverlay";
 import { EconomyHUD } from "../world/EconomyHUD";
 import type { FarmHoveredTile } from "../world/farmHud";
+import { TrainCargoOverlay } from "../world/TrainCargoOverlay";
 import { Hotbar } from "./Hotbar";
 import { useInventoryStore } from "./inventoryStore";
 
@@ -59,6 +60,7 @@ export function Hud({ tiles, hovered }: HudProps) {
 			</div>
 
 			<BarnOverlay />
+			<TrainCargoOverlay />
 		</div>
 	);
 }

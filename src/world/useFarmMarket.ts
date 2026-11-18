@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isTrainUpgradeId, type TrainUpgradeId } from "../../shared/train";
 import { countItem, useInventoryStore } from "../inventory/inventoryStore";
 import type { ItemId } from "../inventory/items";
 import { emitAddItem, emitRemoveItem, emitSellProduce } from "../socket";
@@ -9,6 +10,7 @@ import { useFishingStore } from "./fishingStore";
 import type { MarketItemControl } from "./MarketWindow";
 import { MARKET_ITEMS, type MarketId, type MarketItemId } from "./marketData";
 import { seedPurchaseCap } from "./seedPurchase";
+import { trainUpgradeControl } from "./trainDepotControls";
 import { useEconomyBalance } from "./useEconomy";
 
 /** Market seed id -> the inventory item it grants. */
@@ -136,6 +138,32 @@ export function useFarmMarket(target: string | undefined, isOwner: boolean) {
 		}
 	}
 
+	async function buyTrain(id: TrainUpgradeId) {
+		if (!isOwner) return;
+		const item = MARKET_ITEMS[id];
+		try {
+			const res = await fetch("/api/train/buy", {
+				method: "POST",
+				credentials: "same-origin",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ item: id }),
+			});
+			const data = (await res.json()) as {
+				ok: boolean;
+				error?: string;
+				balance?: number;
+			};
+			if (!res.ok || !data.ok || data.balance === undefined) {
+				setMarketMessage(data.error ?? "Purchase failed.");
+				return;
+			}
+			economy.setBalance(data.balance);
+			setMarketMessage(`Bought the ${item.name}.`);
+		} catch {
+			setMarketMessage("Could not reach the train depot.");
+		}
+	}
+
 	function sellProduce(id: MarketItemId, quantity: number) {
 		if (!target || quantity < 1) return;
 		const item = MARKET_ITEMS[id];
@@ -241,6 +269,11 @@ export function useFarmMarket(target: string | undefined, isOwner: boolean) {
 							onAction: (quantity: number) => void buyHardware(itemId, quantity),
 						},
 					];
+				}
+				if (isTrainUpgradeId(item.id)) {
+					const id = item.id;
+					const control = trainUpgradeControl(id, farm?.train, isOwner, balance);
+					return [item.id, { ...control, onAction: () => void buyTrain(id) }];
 				}
 				const seedId = SEED_ITEMS[item.id];
 				return [

@@ -13,7 +13,16 @@ defmodule GrangeWeb.FarmChannel do
 
   use Phoenix.Channel
 
-  alias Grange.{BarnStorage, FarmGateActions, FarmSettings, FarmStore, Inventory, WorldPosition}
+  alias Grange.{
+    BarnStorage,
+    FarmGateActions,
+    FarmSettings,
+    FarmStore,
+    FarmTrain,
+    Inventory,
+    WorldPosition
+  }
+
   alias GrangeWeb.Presence
 
   # A client sends at ~10 Hz; this only guards against abusive or buggy loops.
@@ -86,6 +95,11 @@ defmodule GrangeWeb.FarmChannel do
   @impl true
   def handle_in("barnAction", %{"action" => action}, socket) do
     authorize_owner(socket, fn owner -> barn_act(socket, owner, action) end)
+  end
+
+  @impl true
+  def handle_in("trainAction", %{"action" => action}, socket) do
+    authorize_owner(socket, fn owner -> train_act(socket, owner, action) end)
   end
 
   @impl true
@@ -223,6 +237,15 @@ defmodule GrangeWeb.FarmChannel do
 
   defp barn_act(socket, owner, action) do
     with {:ok, :ok} <- BarnStorage.action(owner, action),
+         {:ok, _farm} <- FarmStore.refresh(owner) do
+      {:reply, :ok, socket}
+    else
+      {:error, reason} -> {:reply, {:error, %{error: reason}}, socket}
+    end
+  end
+
+  defp train_act(socket, owner, action) do
+    with {:ok, :ok} <- FarmTrain.action(owner, action),
          {:ok, _farm} <- FarmStore.refresh(owner) do
       {:reply, :ok, socket}
     else

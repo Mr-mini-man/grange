@@ -22,6 +22,8 @@ export type MarketplacePropKey =
 
 export const MARKETPLACE_PLAYER_SPAWN = { x: 935, y: 620 } as const;
 export const MARKETPLACE_TRAIN_STOP = { x: 935, y: 655 } as const;
+/** The train depot desk, on the open platform east of the parked train. */
+export const MARKETPLACE_TRAIN_DEPOT = { x: 1150, y: 620 } as const;
 export const MARKETPLACE_CASINO_ENTRANCE = { x: 960, y: 340 } as const;
 export const MARKETPLACE_SEED_MARKET_ENTRANCE = { x: 190, y: 350 } as const;
 export const MARKETPLACE_PRODUCE_MARKET_ENTRANCE = { x: 575, y: 350 } as const;

@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
 	ANIMATED_PROPS,
+	FARM_TRAIN_CART_SPLIT,
 	farmBounds,
 	FARM_TRAIN_ENGINE_STOP,
 	FARM_TRAIN_STOP,
 	isNearFarmTrain,
-		isTillableTile,
-		ownsFarmTile,
+	isNearFarmTrainCart,
+	isNearFarmTrainEngine,
+	isTillableTile,
+	ownsFarmTile,
 	MAP_COLUMNS,
 	MAP_HEIGHT,
 	MAP_ROWS,
@@ -98,6 +101,17 @@ describe("farm map data", () => {
 		expect(isNearFarmTrain(1050, 530)).toBe(true);
 		expect(isNearFarmTrain(1130, 530)).toBe(true);
 		expect(isNearFarmTrain(1060, 450)).toBe(false);
+	});
+
+	it("splits the train band into a cart end and an engine end", () => {
+		expect(FARM_TRAIN_CART_SPLIT).toBe(940);
+		// The arrival spawn sits on the engine half, so boarding wins there.
+		expect(isNearFarmTrainEngine(960, 530)).toBe(true);
+		expect(isNearFarmTrainCart(960, 530)).toBe(false);
+		expect(isNearFarmTrainCart(880, 530)).toBe(true);
+		expect(isNearFarmTrainEngine(880, 530)).toBe(false);
+		// Off the band, neither half matches.
+		expect(isNearFarmTrainCart(700, 530)).toBe(false);
 	});
 
 	it("marks the train as scene-animated so static renderers skip it", () => {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { CROPS } from "../../shared/crops";
+import {
+	TRAIN_UPGRADE_IDS,
+	TRAIN_UPGRADE_PRICES,
+} from "../../shared/train";
 import { FISH, FISH_ORDER, RODS, ROD_ORDER } from "./fishingData";
 import {
 	clampQuantity,
@@ -15,13 +19,12 @@ describe("market definitions", () => {
 		expect(MARKETS.seed.defaultCategory).toBe("seeds");
 	});
 
-	it("gives the produce market sell, fish, rods, tools, and train tabs", () => {
+	it("gives the produce market sell, fish, rods, and tools tabs", () => {
 		expect(MARKETS.produce.categories).toEqual([
 			"sell",
 			"fish",
 			"rods",
 			"tools",
-			"train",
 		]);
 		expect(MARKETS.produce.defaultCategory).toBe("sell");
 	});
@@ -112,6 +115,20 @@ describe("market definitions", () => {
 		expect(MARKET_ITEMS.sprinkler.price).toBe(75);
 		expect(MARKET_ITEMS.fence.price).toBe(5);
 		expect(MARKET_ITEMS.gate.price).toBe(25);
+	});
+
+	it("sells the train upgrades at the depot, priced from the shared rules", () => {
+		expect(MARKETS["train-depot"].categories).toEqual(["train"]);
+		expect(MARKETS["train-depot"].defaultCategory).toBe("train");
+		expect(MARKET_CATEGORIES.train.items).toEqual([
+			"train-engine",
+			"train-cart",
+			"train-cart-upgrade",
+		]);
+		for (const id of TRAIN_UPGRADE_IDS) {
+			expect(MARKET_ITEMS[id].kind).toBe("buy");
+			expect(MARKET_ITEMS[id].price).toBe(TRAIN_UPGRADE_PRICES[id]);
+		}
 	});
 
 	it("clamps sell quantities into the 1..max range", () => {

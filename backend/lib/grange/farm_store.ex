@@ -35,6 +35,7 @@ defmodule Grange.FarmStore do
     FarmSprinkler,
     FarmSprinklers,
     FarmTick,
+    FarmTrain,
     FarmView,
     FieldWater,
     Inventory,
@@ -88,7 +89,8 @@ defmodule Grange.FarmStore do
           visitor_edit: farm.visitor_edit,
           prop_overrides: FarmProps.overrides(owner),
           prop_inventory: FarmProps.inventory(owner),
-          storage: BarnStorage.inventory(farm)
+          storage: BarnStorage.inventory(farm),
+          train: FarmTrain.view(farm)
         }
     end
   end

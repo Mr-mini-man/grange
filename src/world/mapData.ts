@@ -143,6 +143,24 @@ export function isNearFarmTrain(x: number, y: number): boolean {
 		MAX_INTERACTION_DISTANCE;
 }
 
+/** Where the train's front half (the engine) meets its rear half (the carts).
+ * The engine boards the train; the carts load cargo. */
+export const FARM_TRAIN_CART_SPLIT =
+	(FARM_TRAIN_STOP.x + FARM_TRAIN_ENGINE_STOP.x) / 2;
+
+/** True when the player stands at the engine end of the train, where boarding
+ * lives. Both halves keep the full band reach so the arrival spawn still shows
+ * a prompt. */
+export function isNearFarmTrainEngine(x: number, y: number): boolean {
+	return x >= FARM_TRAIN_CART_SPLIT && isNearFarmTrain(x, y);
+}
+
+/** True when the player stands at the cart end of the train, where the cargo
+ * window lives. */
+export function isNearFarmTrainCart(x: number, y: number): boolean {
+	return x < FARM_TRAIN_CART_SPLIT && isNearFarmTrain(x, y);
+}
+
 /** Edit these rules to redraw the 64px terrain grid. */
 export function terrainAt(column: number, row: number): TerrainKey {
 	if (row === 11) return "water";

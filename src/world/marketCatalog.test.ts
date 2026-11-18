@@ -101,8 +101,8 @@ describe("produce stall catalog", () => {
 });
 
 describe("produce secondary tabs", () => {
-	it("keeps fish, rods, tools, and train off the crop grid", () => {
-		expect(PRODUCE_SECONDARY_TABS).toEqual(["fish", "rods", "tools", "train"]);
+	it("keeps fish, rods, and tools off the crop grid", () => {
+		expect(PRODUCE_SECONDARY_TABS).toEqual(["fish", "rods", "tools"]);
 		expect(PRODUCE_SECONDARY_TABS).not.toContain("sell");
 	});
 });

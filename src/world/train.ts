@@ -1,4 +1,6 @@
 import * as ex from "excalibur";
+import { trainSpeedFactor } from "../../shared/train";
+import type { TrainCart } from "../../shared/types";
 import { MAP_WIDTH } from "./mapData";
 import {
 	smokeImages,
@@ -7,12 +9,13 @@ import {
 	trainTracksImage,
 } from "./resources";
 import { e2eMs } from "./testMode";
+import { TrainCarts } from "./trainCarts";
 
-/** The train's departure/arrival lasts this long, advanced in discrete frames
- * for a chunky, pixel-art feel (20 steps a second). E2E shortens the trip. */
-const TRAVEL_MS = e2eMs(2_000, 500);
+/** The train's base departure/arrival duration, advanced in discrete frames
+ * for a chunky, pixel-art feel (20 steps a second). A better engine shortens
+ * it; E2E shortens the whole trip. */
+const BASE_TRAVEL_MS = e2eMs(2_000, 500);
 const PIXEL_STEP_MS = 50;
-const TRAVEL_STEPS = TRAVEL_MS / PIXEL_STEP_MS;
 /** The committed track art is a full-resolution copy of the source strip, so it
  * uses the train's own scale to match its pixel density. */
 const TRACK_RESOLUTION = 1;
@@ -69,6 +72,16 @@ export function findTrainRest(props: TrainProp[]): TrainRest {
 	const prop = props.find((candidate) => candidate.asset === "starter-train");
 	if (!prop) throw new Error("No starter-train prop found for this scene.");
 	return { x: prop.x, y: prop.y, width: prop.width };
+}
+
+/** Live train state the controller reads each frame so upgrades and cargo
+ * changes need no explicit wiring. Both default to a tier-0 starter train. */
+export interface TrainOptions {
+	flipHorizontal?: boolean;
+	/** The current engine tier, used to scale the trip speed. */
+	getEngine?: () => number;
+	/** The coupled carts, used to draw (and re-draw) the cargo cars. */
+	getCarts?: () => TrainCart[];
 }
 
 /** Tiles a static, full-width track across the scene under the train. */
@@ -143,40 +156,45 @@ export class TrainController {
 	private readonly wheelAnimation: ex.Animation;
 	private readonly smokeActor: ex.Actor;
 	private readonly smokeAnimation: ex.Animation;
+	private readonly carts: TrainCarts;
 	private readonly flipHorizontal: boolean;
 	private readonly trainScale: number;
+	private readonly options: TrainOptions;
 	private state: TrainState = "idle";
 	private elapsed = 0;
 	private step = 0;
 	private fromX = 0;
 	private toX = 0;
+	private travelMs = BASE_TRAVEL_MS;
+	private travelSteps = BASE_TRAVEL_MS / PIXEL_STEP_MS;
 	private easing: (t: number) => number = linear;
 	private onDone: (() => void) | null = null;
 
 	constructor(
 		private readonly rest: TrainRest,
 		scene: ex.Scene,
-		flipHorizontal = false,
+		options: TrainOptions = {},
 	) {
-		this.flipHorizontal = flipHorizontal;
+		this.options = options;
+		this.flipHorizontal = options.flipHorizontal ?? false;
 		this.trainScale = rest.width / trainImage.width;
 		const scale = this.trainScale;
 		const sprite = trainImage.toSprite();
 		sprite.scale = ex.vec(scale, scale);
-		sprite.flipHorizontal = flipHorizontal;
+		sprite.flipHorizontal = this.flipHorizontal;
 		const z = 100 + Math.floor(rest.y);
 		this.actor = new ex.Actor({
 			pos: ex.vec(rest.x, rest.y),
 			anchor: ex.vec(0.5, 1),
 			z,
 		});
-		this.wheelAnimation = buildWheelAnimation(rest, flipHorizontal);
+		this.wheelAnimation = buildWheelAnimation(rest, this.flipHorizontal);
 		this.actor.graphics.add("parked", sprite);
 		this.actor.graphics.add("moving", this.wheelAnimation);
 		this.actor.graphics.use("parked");
 		scene.add(this.actor);
 
-		this.smokeAnimation = buildSmokeAnimation(scale, flipHorizontal);
+		this.smokeAnimation = buildSmokeAnimation(scale, this.flipHorizontal);
 		// Bottom outer corner anchored to the stack mouth: the smoke art
 		// trails from its low end (right side, mirrored when flipped), so
 		// the plume grows up and away from the stack instead of straddling
@@ -184,12 +202,15 @@ export class TrainController {
 		// with no sideways jump between sizes.
 		this.smokeActor = new ex.Actor({
 			pos: this.smokePosFor(this.actor.pos),
-			anchor: ex.vec(flipHorizontal ? 0 : 1, 1),
+			anchor: ex.vec(this.flipHorizontal ? 0 : 1, 1),
 			z: z + 1,
 		});
 		this.smokeActor.graphics.use(this.smokeAnimation);
 		this.smokeActor.graphics.visible = false;
 		scene.add(this.smokeActor);
+
+		this.carts = new TrainCarts(scene);
+		this.syncCarts();
 
 		addTrainTracks(scene, rest, scale * TRACK_RESOLUTION);
 	}
@@ -214,8 +235,8 @@ export class TrainController {
 	 * easing's slope, so the wheels spin faster the faster the train moves.
 	 * Clamped at the ends so the difference always has a span to divide by. */
 	private wheelSpeed(): number {
-		const dt = 1 / TRAVEL_STEPS;
-		const t = Math.min(this.step / TRAVEL_STEPS, 1);
+		const dt = 1 / this.travelSteps;
+		const t = Math.min(this.step / this.travelSteps, 1);
 		const lo = Math.max(0, t - dt);
 		const hi = Math.min(1, t + dt);
 		const slope = (this.easing(hi) - this.easing(lo)) / (hi - lo);
@@ -230,6 +251,8 @@ export class TrainController {
 			this.actor.graphics.use("parked");
 			this.smokeActor.graphics.visible = false;
 			this.syncSmokePos();
+			this.syncCarts();
+			this.carts.setX(this.actor.pos.x, this.rest);
 			return;
 		}
 		this.beginTrip(
@@ -255,18 +278,22 @@ export class TrainController {
 
 	/** Advances the stepped animation; call once per frame. */
 	update(delta: number): void {
+		// Cargo or couplers may have changed; pick that up before drawing.
+		this.syncCarts();
+		this.carts.setX(this.actor.pos.x, this.rest);
 		if (!this.isTravelling()) return;
 		this.elapsed += delta;
 		while (this.elapsed >= PIXEL_STEP_MS && this.isTravelling()) {
 			this.elapsed -= PIXEL_STEP_MS;
 			this.step += 1;
-			const t = Math.min(this.step / TRAVEL_STEPS, 1);
+			const t = Math.min(this.step / this.travelSteps, 1);
 			const eased = this.easing(t);
 			this.actor.pos = ex.vec(
 				Math.round(this.fromX + (this.toX - this.fromX) * eased),
 				this.rest.y,
 			);
 			this.syncSmokePos();
+			this.carts.setX(this.actor.pos.x, this.rest);
 			if (t >= 1) this.finishTrip();
 		}
 		if (this.isTravelling()) {
@@ -281,6 +308,13 @@ export class TrainController {
 		state: TrainState,
 		onDone: (() => void) | null,
 	): void {
+		// A better engine shrinks the trip; recompute it here so an upgrade
+		// bought mid-session takes effect on the next ride.
+		this.travelMs = Math.max(
+			PIXEL_STEP_MS,
+			Math.round(BASE_TRAVEL_MS * trainSpeedFactor(this.options.getEngine?.() ?? 0)),
+		);
+		this.travelSteps = this.travelMs / PIXEL_STEP_MS;
 		this.fromX = fromX;
 		this.toX = toX;
 		this.easing = easing;
@@ -295,6 +329,12 @@ export class TrainController {
 		this.actor.graphics.use("moving");
 		this.smokeActor.graphics.visible = true;
 		this.syncSmokePos();
+		this.carts.setX(this.actor.pos.x, this.rest);
+	}
+
+	/** Rebuilds the drawn carts when the coupled carts or their tiers change. */
+	private syncCarts(): void {
+		this.carts.set(this.options.getCarts?.() ?? [], this.rest);
 	}
 
 	private finishTrip(): void {

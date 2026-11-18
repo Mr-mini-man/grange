@@ -245,6 +245,7 @@ auth is the `_grange_key` cookie; the socket uses the token instead.
 | GET | `/api/auth/mailbox` | none | Dev/test only (`enable_test_routes`); returns the console mailer's last message for `?to=` |
 | POST | `/api/economy/transaction` | cookie | `{delta}` integer; clamped at zero |
 | POST | `/api/hardware/buy` | cookie | `{item, quantity}` → `{balance, sprinkler_count}` |
+| POST | `/api/train/buy` | cookie | `{item}` (`train-engine`/`train-cart`/`train-cart-upgrade`) → `{balance, item}` |
 | GET | `/api/state` | none | `{playerCount, farmCount}` |
 | POST | `/api/reset` | none | Dev/test only; wipes accounts and farms |
 
@@ -293,6 +294,7 @@ Client events:
 | `gateAction` | `{action: {kind: "toggle_gate", x, y}}` | any joined user | `:ok` | `{error: reason}` |
 | `farmPropAction` | `{action: {kind: "dig", index} \| {kind: "place", asset, x, y}}` | owner, or visitor while `visitor_edit`, or any admin | `:ok` | `{error: reason}` |
 | `barnAction` | `{action: {kind: "deposit" \| "withdraw", item, count}}` | farm owner only | `:ok` | `{error: reason}` |
+| `trainAction` | `{action: {kind: "deposit" \| "withdraw", item, count, cart?}}` | farm owner only | `:ok` | `{error: reason}` |
 | `sellProduce` | `{item: cropId, count: integer}` | farm owner only | `:ok` | `{error: reason}` |
 | `updateSettings` | `{is_public?, visitor_edit?}` | farm owner only | `{farm}` | `{error: reason}` |
 | `move` | `{x, y}` | any joined user | `:ok` | `{error: "move ignored"}` |

@@ -1,5 +1,7 @@
 import { expect, type Page } from "@playwright/test";
+import { MARKETPLACE_TRAIN_DEPOT } from "../../src/world/marketplaceData";
 import type { WorldSceneName } from "../../src/world/WalkingScene";
+import { movePlayerNear } from "./farm";
 
 /**
  * Budget for a train ride. Departure and arrival animate for two seconds of
@@ -241,6 +243,32 @@ export async function walkToCasino(page: Page): Promise<void> {
 export async function walkToHardwareStore(page: Page): Promise<void> {
 	await reachShopLane(page);
 	await walkUntilPrompt(page, ["d"], "shop at the hardware store");
+}
+
+/**
+ * Walks from the marketplace spawn to the train depot desk east of the parked
+ * train.
+ *
+ * The walk is position-driven rather than prompt-polled: the desk's interaction
+ * radius is narrow, and on a starved frame loop a single step can carry the
+ * player past it between polls. `movePlayerNear` approaches in recalibrated
+ * bursts, so it lands inside the radius regardless of frame rate.
+ */
+export async function walkToTrainDepot(
+	page: Page,
+	timeout = 20_000,
+): Promise<void> {
+	await movePlayerNear(
+		page,
+		MARKETPLACE_TRAIN_DEPOT.x,
+		MARKETPLACE_TRAIN_DEPOT.y,
+		12,
+		{ timeout },
+	);
+	await expect(page.getByTestId("travel-prompt")).toContainText(
+		"visit the train depot",
+		{ timeout },
+	);
 }
 
 /** Walks from the marketplace spawn to the bank door. */

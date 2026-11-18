@@ -4,6 +4,7 @@ import { HardwareStall } from "./HardwareStall";
 import type { MarketDefinition, MarketId, MarketItemId } from "./marketData";
 import { ProduceStall } from "./ProduceStall";
 import { SeedStall } from "./SeedStall";
+import { TrainDepotStall } from "./TrainDepotStall";
 import { useEconomyBalance } from "./useEconomy";
 import "./marketWindow.css";
 
@@ -28,6 +29,7 @@ const STALL_TITLES: Record<MarketId, string> = {
 	seed: "GRANGE MARKET - SEED STALL",
 	produce: "GRANGE MARKET - PRODUCE STALL",
 	hardware: "Hardware Store",
+	"train-depot": "Train Depot",
 };
 
 /**
@@ -44,6 +46,9 @@ export function MarketWindow({
 	const [stall, setStall] = useState<MarketId>(market.id);
 	const balance = useEconomyBalance();
 	const isHardware = market.id === "hardware";
+	const isDepot = market.id === "train-depot";
+	// Only the seed and produce stalls share the tab switcher.
+	const hasStallTabs = !isHardware && !isDepot;
 
 	useEffect(() => {
 		function onKeyDown(event: KeyboardEvent) {
@@ -54,7 +59,7 @@ export function MarketWindow({
 				onClose();
 				return;
 			}
-			if (!isHardware && event.code === "Tab") {
+			if (hasStallTabs && event.code === "Tab") {
 				event.preventDefault();
 				event.stopImmediatePropagation();
 				setStall((current) => (current === "seed" ? "produce" : "seed"));
@@ -62,7 +67,7 @@ export function MarketWindow({
 		}
 		window.addEventListener("keydown", onKeyDown, true);
 		return () => window.removeEventListener("keydown", onKeyDown, true);
-	}, [onClose, isHardware]);
+	}, [onClose, hasStallTabs]);
 
 	return (
 		<div className="market-overlay">
@@ -77,7 +82,7 @@ export function MarketWindow({
 					<h2 className="market-title" data-testid="market-title">
 						{STALL_TITLES[stall]}
 					</h2>
-					{!isHardware && (
+					{hasStallTabs && (
 						<div className="market-stall-tabs" role="tablist" aria-label="Stalls">
 							<button
 								type="button"
@@ -119,7 +124,9 @@ export function MarketWindow({
 				</header>
 
 				<div className="market-body">
-					{isHardware ? (
+					{isDepot ? (
+						<TrainDepotStall controls={controls} />
+					) : isHardware ? (
 						<HardwareStall controls={controls} />
 					) : stall === "seed" ? (
 						<SeedStall controls={controls} balance={balance} />

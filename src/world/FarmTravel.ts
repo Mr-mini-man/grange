@@ -1,8 +1,12 @@
 import type * as ex from "excalibur";
+import { useInventoryStore } from "../inventory/inventoryStore";
 import type { InputManager } from "./InputManager";
-import { isNearFarmTrain } from "./mapData";
+import { isNearFarmTrainCart, isNearFarmTrainEngine } from "./mapData";
 import type { TrainController } from "./train";
 import type { WorldArea } from "./WalkingScene";
+
+const BOARD_PROMPT = "Press E or Enter to board the train";
+const CARGO_PROMPT = "Press E to load the train";
 
 export class FarmTravel {
 	private activePrompt: string | null = null;
@@ -11,6 +15,7 @@ export class FarmTravel {
 		private readonly onPromptChange: (prompt: string | null) => void,
 		private readonly onAreaChange: (area: WorldArea) => void,
 		private readonly onOpenMenu: () => void,
+		private readonly isOwner: boolean,
 	) {}
 
 	activate(): void {
@@ -26,7 +31,7 @@ export class FarmTravel {
 		housePrompt: string | null = null,
 		onOpenHouse: (() => void) | null = null,
 	): void {
-		// A nearby gate owns the prompt and the E key while it is in range.
+		// A nearby gate or barn owns the prompt and the E key while in range.
 		if (gatePrompt) {
 			this.setPrompt(gatePrompt);
 			return;
@@ -36,12 +41,24 @@ export class FarmTravel {
 			if (input.consumePress("KeyE", "Enter")) onOpenHouse();
 			return;
 		}
-		const canBoard = isNearFarmTrain(player.pos.x, player.pos.y) && train.canBoard();
-		this.setPrompt(canBoard ? "Press E or Enter to board the train" : null);
-		if (!canBoard) return;
-		if (!input.consumePress("KeyE", "Enter")) return;
+		// The engine end boards the train; the cart end opens its cargo.
+		if (isNearFarmTrainEngine(player.pos.x, player.pos.y) && train.canBoard()) {
+			this.setPrompt(BOARD_PROMPT);
+			if (input.consumePress("KeyE", "Enter")) {
+				this.setPrompt(null);
+				this.onOpenMenu();
+			}
+			return;
+		}
+		if (this.isOwner && isNearFarmTrainCart(player.pos.x, player.pos.y)) {
+			this.setPrompt(CARGO_PROMPT);
+			if (input.consumePress("KeyE", "Enter")) {
+				this.setPrompt(null);
+				useInventoryStore.getState().setTrainCargoOpen(true);
+			}
+			return;
+		}
 		this.setPrompt(null);
-		this.onOpenMenu();
 	}
 
 	deactivate(): void {

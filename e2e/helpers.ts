@@ -45,6 +45,7 @@ export {
 	walkToLivestock,
 	walkToProduceMarket,
 	walkToSeedMarket,
+	walkToTrainDepot,
 	walkUntilPrompt,
 } from "./support/nav";
 export {

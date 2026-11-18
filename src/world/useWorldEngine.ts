@@ -36,6 +36,7 @@ interface WorldEngineOptions {
 	setHud: Dispatch<SetStateAction<FarmHudSnapshot>>;
 	setEngineReady: (ready: boolean) => void;
 	setMarket: (market: MarketId) => void;
+	setPlayerPos: (x: number, y: number) => void;
 }
 
 interface SceneCallbacks {
@@ -70,6 +71,7 @@ export function useWorldEngine(
 		setEngineReady,
 		setMarket,
 		setMarketMessage,
+		setPlayerPos,
 		selectAnimal,
 		setLivestockMessage,
 		setBankDesk,
@@ -126,6 +128,7 @@ export function useWorldEngine(
 				setMarket(id);
 			},
 			openMarketplaceTravelMenu,
+			setPlayerPos,
 		);
 		marketSceneRef.current = marketplace;
 		engine.addScene("marketplace", marketplace);
@@ -231,6 +234,7 @@ export function useWorldEngine(
 		setEngineReady,
 		setMarket,
 		setMarketMessage,
+		setPlayerPos,
 		selectAnimal,
 		setLivestockMessage,
 		setBankDesk,

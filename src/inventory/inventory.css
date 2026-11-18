@@ -446,6 +446,31 @@ button.hud-prompt:focus-visible {
 	font-size: 0.78rem;
 }
 
+/* Train cargo window: one row per cart, each with its cargo slots. */
+
+.train-cart-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+}
+
+.train-cart {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	padding: 0.45rem 0.55rem;
+	border: 1px solid #4a3a22;
+	border-radius: 0.4rem;
+	background: rgba(0, 0, 0, 0.18);
+}
+
+.train-cart-label {
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: #cbb27e;
+}
+
 @media (max-width: 900px) {
 	.barn-body {
 		grid-template-columns: 1fr;

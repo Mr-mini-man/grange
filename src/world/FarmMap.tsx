@@ -1,5 +1,5 @@
 import type * as ex from "excalibur";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Hud } from "../inventory/Hud";
 import { InventoryPanel } from "../inventory/InventoryPanel";
@@ -75,6 +75,12 @@ export default function FarmMap() {
 	const target = owner ?? username;
 	const isOwner = target === username;
 	const [area, setArea] = useState<WorldArea>("Farm");
+	// Hubs report their own player position; the farm uses the HUD snapshot.
+	const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 });
+	const reportPlayerPos = useCallback(
+		(x: number, y: number) => setPlayerPos({ x, y }),
+		[],
+	);
 	const {
 		market,
 		marketMessage,
@@ -171,6 +177,7 @@ export default function FarmMap() {
 		setEngineReady,
 		setMarket,
 		setMarketMessage,
+		setPlayerPos: reportPlayerPos,
 		selectAnimal,
 		setLivestockMessage,
 		setBankDesk,
@@ -240,8 +247,8 @@ export default function FarmMap() {
 		<main
 			className="farm-map-page"
 			data-world-ready={worldReady ? "true" : "false"}
-data-player-x={Math.round(hud.player.x)}
-			data-player-y={Math.round(hud.player.y)}
+			data-player-x={Math.round(area === "Farm" ? hud.player.x : playerPos.x)}
+			data-player-y={Math.round(area === "Farm" ? hud.player.y : playerPos.y)}
 			data-hub-peers={hubPeers.join(",")}
 			data-farm-peers={farmPeers.join(",")}
 			data-sprinklers={(farm?.sprinklers ?? [])
