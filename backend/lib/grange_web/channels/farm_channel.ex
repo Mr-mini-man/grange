@@ -20,6 +20,7 @@ defmodule GrangeWeb.FarmChannel do
     FarmStore,
     FarmTrain,
     Inventory,
+    NpcQuest,
     WorldPosition
   }
 
@@ -55,7 +56,9 @@ defmodule GrangeWeb.FarmChannel do
         GrangeWeb.Endpoint.subscribe("farm:" <> owner)
         track(username, owner, nil, nil)
         send(self(), :after_join)
-        {:ok, %{farm: FarmStore.view(owner)}, assign(socket, :owner, owner)}
+
+        {:ok, %{farm: FarmStore.view(owner), npc: npc_status(owner, username)},
+         assign(socket, :owner, owner)}
     end
   end
 
@@ -85,6 +88,24 @@ defmodule GrangeWeb.FarmChannel do
   @impl true
   def handle_in("sellProduce", %{"item" => item, "count" => count}, socket) do
     authorize_owner(socket, fn owner -> sell(socket, owner, item, count) end)
+  end
+
+  # The farmhand's quest is owner-only: he stands on the owner's farm and
+  # trades from the owner's barn and wallet.
+  @impl true
+  def handle_in("npcIntroSeen", _payload, socket) do
+    authorize_owner(socket, fn owner ->
+      {:reply, {:ok, %{npc: NpcQuest.intro_seen(owner)}}, socket}
+    end)
+  end
+
+  @impl true
+  def handle_in("npcSell", %{"item" => item}, socket) do
+    authorize_owner(socket, fn owner -> sell_to_npc(socket, owner, item) end)
+  end
+
+  def handle_in("npcSell", _payload, socket) do
+    {:reply, {:error, %{error: "invalid trade"}}, socket}
   end
 
   @impl true
@@ -120,7 +141,7 @@ defmodule GrangeWeb.FarmChannel do
     with %{username: username} <- user,
          true <- is_binary(owner),
          true <- throttle_open?(socket.assigns[:last_move_at], now),
-         {:ok, {px, py}} <- WorldPosition.clamp(x, y) do
+         {:ok, {px, py}} <- WorldPosition.clamp_farm(x, y) do
       track(username, owner, px, py)
       {:reply, :ok, assign(socket, :last_move_at, now)}
     else
@@ -234,6 +255,21 @@ defmodule GrangeWeb.FarmChannel do
       {:error, reason} -> {:reply, {:error, %{error: reason}}, socket}
     end
   end
+
+  defp sell_to_npc(socket, owner, item) do
+    case NpcQuest.sell(owner, item) do
+      {:ok, result} ->
+        # The trade removes produce from the barn, so refresh the room.
+        FarmStore.refresh(owner)
+        {:reply, {:ok, result}, socket}
+
+      {:error, reason} ->
+        {:reply, {:error, %{error: reason}}, socket}
+    end
+  end
+
+  defp npc_status(owner, username) when owner == username, do: NpcQuest.status(owner)
+  defp npc_status(_owner, _username), do: nil
 
   defp barn_act(socket, owner, action) do
     with {:ok, :ok} <- BarnStorage.action(owner, action),

@@ -2,14 +2,16 @@ import { useState } from "react";
 import { isTrainUpgradeId, type TrainUpgradeId } from "../../shared/train";
 import { countItem, useInventoryStore } from "../inventory/inventoryStore";
 import type { ItemId } from "../inventory/items";
-import { emitAddItem, emitRemoveItem, emitSellProduce } from "../socket";
+import { emitAddItem, emitRemoveItem } from "../socket";
 import { useGameStore } from "../store";
+import { emitSellProduce } from "./barnSocket";
 import { economy } from "./EconomyManager";
 import { type FishId, isFishId, isRodId, RODS } from "./fishingData";
 import { useFishingStore } from "./fishingStore";
 import type { MarketItemControl } from "./MarketWindow";
 import { MARKET_ITEMS, type MarketId, type MarketItemId } from "./marketData";
 import { seedPurchaseCap } from "./seedPurchase";
+import { orderSeeds } from "./seedShop";
 import { trainUpgradeControl } from "./trainDepotControls";
 import { useEconomyBalance } from "./useEconomy";
 
@@ -57,31 +59,14 @@ export function useFarmMarket(target: string | undefined, isOwner: boolean) {
 		const item = MARKET_ITEMS[id];
 		const count = Math.floor(quantity);
 		if (!SEED_ITEMS[id] || count < 1) return;
-		try {
-			const res = await fetch("/api/inventory/buy", {
-				method: "POST",
-				credentials: "same-origin",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ item: id, quantity: count }),
-			});
-			const data = (await res.json()) as {
-				ok: boolean;
-				error?: string;
-				balance?: number;
-				seeds?: Record<string, number>;
-			};
-			if (!res.ok || !data.ok) {
-				setMarketMessage(data.error ?? "Purchase failed.");
-				return;
-			}
-			if (typeof data.balance === "number") economy.setBalance(data.balance);
-			if (data.seeds) useInventoryStore.getState().hydrateSeeds(data.seeds);
-			setMarketMessage(
-				`Bought ${count} ${item.name} for $${item.price * count}.`,
-			);
-		} catch {
-			setMarketMessage("Could not reach the market.");
+		const result = await orderSeeds(id, count);
+		if (!result.ok) {
+			setMarketMessage(result.error ?? "Purchase failed.");
+			return;
 		}
+		setMarketMessage(
+			`Bought ${count} ${item.name} for $${item.price * count}.`,
+		);
 	}
 
 	async function buyTool(id: ItemId, quantity: number) {
@@ -266,7 +251,8 @@ export function useFarmMarket(target: string | undefined, isOwner: boolean) {
 							owned,
 							disabled: !isOwner || balance < item.price,
 							actionLabel: "Buy",
-							onAction: (quantity: number) => void buyHardware(itemId, quantity),
+							onAction: (quantity: number) =>
+								void buyHardware(itemId, quantity),
 						},
 					];
 				}

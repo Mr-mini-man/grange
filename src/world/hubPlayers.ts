@@ -9,6 +9,7 @@ import {
 	remoteStep,
 	shouldSnap,
 } from "./hubInterpolation";
+import { createNameLabel } from "./nameLabel";
 import { peerHit } from "./peerHit";
 
 /** Space between the avatar's feet and the bottom of its name label. */
@@ -46,7 +47,7 @@ export class HubPlayers {
 		private readonly local: ex.Actor,
 		localName: string,
 	) {
-		this.selfLabel = createLabel(localName);
+		this.selfLabel = createNameLabel(localName);
 		scene.add(this.selfLabel);
 		this.placeLabel(this.selfLabel, local.pos, local.z);
 	}
@@ -142,7 +143,7 @@ export class HubPlayers {
 		addFarmerGraphics(actor);
 		this.scene.add(actor);
 
-		const label = createLabel(peer.name);
+		const label = createNameLabel(peer.name);
 		this.scene.add(label);
 		this.placeLabel(label, actor.pos, actor.z);
 
@@ -155,26 +156,4 @@ export class HubPlayers {
 		label.pos.y = pos.y - LABEL_OFFSET_Y;
 		label.z = z + 1;
 	}
-}
-
-function createLabel(text: string): ex.Actor {
-	const font = new ex.Font({
-		size: 16,
-		family: '"Rye", serif',
-		textAlign: ex.TextAlign.Center,
-		shadow: {
-			blur: 2,
-			offset: ex.vec(1, 2),
-			color: ex.Color.fromHex("#241208"),
-		},
-	});
-	const label = new ex.Actor({
-		pos: ex.vec(0, 0),
-		anchor: ex.vec(0.5, 1),
-		z: 0,
-	});
-	label.graphics.use(
-		new ex.Text({ text, font, color: ex.Color.fromHex("#fff4d6") }),
-	);
-	return label;
 }

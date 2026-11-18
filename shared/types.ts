@@ -114,6 +114,18 @@ export type FarmPropAction =
 	| { kind: "dig"; index: number }
 	| { kind: "place"; asset: string; x: number; y: number };
 
+/** Where the farmhand's starter quest stands. */
+export type NpcStage = "intro" | "tomatoes" | "supplies" | "complete";
+
+/** The owner's farmhand quest progress, sent with the farm join reply. */
+export interface NpcQuestStatus {
+	stage: NpcStage;
+	/** Crops handed in so far, each capped at the quest goal. */
+	tomatoes: number;
+	lettuce: number;
+	wheat: number;
+}
+
 /** A deposit into or withdrawal from a farm's barn storage. */
 export interface BarnAction {
 	kind: "deposit" | "withdraw";

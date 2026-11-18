@@ -2,6 +2,7 @@ import * as ex from "excalibur";
 import { depthForY } from "./depth";
 import { addFarmerGraphics } from "./farmerSprite";
 import { FARM_PLAYER_SPAWN, farmBounds, MAP_HEIGHT, MAP_WIDTH, TILE_SIZE } from "./mapData";
+import { cameraAxis } from "./viewport";
 
 export function createFarmPlayer(scene: ex.Scene): ex.Actor {
 	const player = new ex.Actor({
@@ -16,13 +17,29 @@ export function createFarmPlayer(scene: ex.Scene): ex.Actor {
 	return player;
 }
 
-export function followFarmPlayer(camera: ex.Camera, position: ex.Vector, level: number): void {
+export function followFarmPlayer(
+	camera: ex.Camera,
+	position: ex.Vector,
+	level: number,
+	engine?: ex.Engine,
+): void {
+	const halfWidth = engine?.halfDrawWidth ?? MAP_WIDTH / 2;
+	const halfHeight = engine?.halfDrawHeight ?? MAP_HEIGHT / 2;
 	const bounds = farmBounds(level);
-	const minX = bounds.minColumn * TILE_SIZE;
-	const maxX = (bounds.maxColumn + 1) * TILE_SIZE;
-	const minY = bounds.minRow * TILE_SIZE;
+	// A viewport wider than the owned land stays centred on the farm and lets
+	// the scenic backdrop show at the edges instead of pinning to one corner.
 	camera.pos = ex.vec(
-		ex.clamp(position.x, minX + MAP_WIDTH / 2, maxX - MAP_WIDTH / 2),
-		ex.clamp(position.y, minY + MAP_HEIGHT / 2, MAP_HEIGHT / 2),
+		cameraAxis(
+			position.x,
+			halfWidth,
+			bounds.minColumn * TILE_SIZE,
+			(bounds.maxColumn + 1) * TILE_SIZE,
+		),
+		cameraAxis(
+			position.y,
+			halfHeight,
+			bounds.minRow * TILE_SIZE,
+			MAP_HEIGHT,
+		),
 	);
 }

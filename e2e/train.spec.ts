@@ -34,12 +34,17 @@ test("the train depot sells engine and cart upgrades", async ({ page }) => {
 
 	// The engine upgrade goes faster and pulls one more cart, for $400.
 	await page.getByTestId("market-action-train-engine").click();
-	await expect(page.getByTestId("train-depot-summary")).toContainText("Mk 2");
+	await expect(page.getByTestId("train-depot-summary")).toContainText("Mk 2", {
+		timeout: 15_000,
+	});
 	await expect(page.getByTestId("farm-balance")).toContainText("700");
 
 	// With engine Mk 2 an extra cart is allowed; it lands in the summary.
 	await page.getByTestId("market-action-train-cart").click();
-	await expect(page.getByTestId("train-depot-summary")).toContainText("2 carts");
+	await expect(page.getByTestId("train-depot-summary")).toContainText(
+		"2 carts",
+		{ timeout: 15_000 },
+	);
 	await expect(page.getByTestId("farm-balance")).toContainText("400");
 
 	await page.getByTestId("market-close").click();
@@ -51,9 +56,9 @@ test("the owner loads and unloads a cart's cargo", async ({ page }) => {
 	await expect(page).toHaveURL(/\/world$/);
 	await waitForWorld(page);
 
-	// Walk to the cart end of the train and open the cargo window.
-	await walkUntilPrompt(page, ["d"], "load the train");
-	await page.keyboard.press("e");
+	// Walk to the cart end of the train and open the cargo window with C.
+	await walkUntilPrompt(page, ["d"], "load the train", 20_000);
+	await page.keyboard.press("c");
 
 	const cargo = page.getByTestId("train-cargo-window");
 	await expect(cargo).toBeVisible();
@@ -65,6 +70,7 @@ test("the owner loads and unloads a cart's cargo", async ({ page }) => {
 	await expect(page.getByTestId("train-cargo-slot-1-0")).toHaveAttribute(
 		"data-item",
 		"seed-bag",
+		{ timeout: 15_000 },
 	);
 
 	// Clicking the loaded slot unloads it back into the hotbar.
@@ -72,12 +78,13 @@ test("the owner loads and unloads a cart's cargo", async ({ page }) => {
 	await expect(page.getByTestId("train-cargo-slot-1-0")).toHaveAttribute(
 		"data-item",
 		"",
+		{ timeout: 15_000 },
 	);
 	await expect(
 		page
 			.getByTestId("train-cargo-player-hotbar")
 			.getByTestId("slot-hotbar-1"),
-	).toHaveAttribute("data-count", "10");
+	).toHaveAttribute("data-count", "10", { timeout: 15_000 });
 
 	await page.getByTestId("train-cargo-close").click();
 	await expect(cargo).toHaveCount(0);

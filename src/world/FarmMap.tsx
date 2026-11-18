@@ -1,5 +1,5 @@
 import type * as ex from "excalibur";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Hud } from "../inventory/Hud";
 import { InventoryPanel } from "../inventory/InventoryPanel";
@@ -30,6 +30,7 @@ import { LivestockPurchaseOverlay } from "./LivestockPurchaseOverlay";
 import type { MarketplaceScene } from "./MarketplaceScene";
 import { MarketWindow } from "./MarketWindow";
 import { MARKETS } from "./marketData";
+import { NpcTradeWindow } from "./NpcTradeWindow";
 import { TravelMenu } from "./TravelMenu";
 import { useBarnReconcile } from "./useBarnReconcile";
 import { useFarmMarket } from "./useFarmMarket";
@@ -39,6 +40,7 @@ import {
 } from "./useFarmObjectInventory";
 import { useHouseMenu } from "./useHouseMenu";
 import { useLivestockPurchase } from "./useLivestockPurchase";
+import { useNpcTrade } from "./useNpcTrade";
 import { useWorldEngine } from "./useWorldEngine";
 import { useWorldTravel } from "./useWorldTravel";
 import type { WorldArea } from "./WalkingScene";
@@ -77,10 +79,6 @@ export default function FarmMap() {
 	const [area, setArea] = useState<WorldArea>("Farm");
 	// Hubs report their own player position; the farm uses the HUD snapshot.
 	const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 });
-	const reportPlayerPos = useCallback(
-		(x: number, y: number) => setPlayerPos({ x, y }),
-		[],
-	);
 	const {
 		market,
 		marketMessage,
@@ -146,6 +144,19 @@ export default function FarmMap() {
 	const [fishingOpen, setFishingOpen] = useState(false);
 	const [engineReady, setEngineReady] = useState(false);
 	const { houseOpen, openHouseMenu, closeHouseMenu } = useHouseMenu(sceneRef);
+	const {
+		status: npcStatus,
+		npcOpen,
+		npcMessage,
+		npcThanks,
+		npcBusy,
+		openNpc,
+		closeNpc,
+		acknowledgeIntro,
+		dismissThanks,
+		sell: sellToNpc,
+		buySeeds: buyNpcSeeds,
+	} = useNpcTrade(sceneRef, target, isOwner);
 	const { openFarmTravelMenu, openMarketplaceTravelMenu } = useWorldTravel({
 		target,
 		username,
@@ -177,13 +188,14 @@ export default function FarmMap() {
 		setEngineReady,
 		setMarket,
 		setMarketMessage,
-		setPlayerPos: reportPlayerPos,
+		setPlayerPos,
 		selectAnimal,
 		setLivestockMessage,
 		setBankDesk,
 		setCasinoOverlay,
 		setFishingOpen,
 		openHouseMenu,
+		openNpcTrade: openNpc,
 		openFarmTravelMenu,
 		openMarketplaceTravelMenu,
 	});
@@ -251,6 +263,7 @@ export default function FarmMap() {
 			data-player-y={Math.round(area === "Farm" ? hud.player.y : playerPos.y)}
 			data-hub-peers={hubPeers.join(",")}
 			data-farm-peers={farmPeers.join(",")}
+			data-npc-stage={npcStatus?.stage ?? "none"}
 			data-sprinklers={(farm?.sprinklers ?? [])
 				.map((s) => `${s.x},${s.y}`)
 				.join(";")}
@@ -305,6 +318,20 @@ export default function FarmMap() {
 			{paused && <PauseMenu />}
 			{houseOpen && isOwner && farm && (
 				<HouseMenu owner={target ?? ""} farm={farm} onClose={closeHouseMenu} />
+			)}
+			{npcOpen && npcStatus && (
+				<NpcTradeWindow
+					status={npcStatus}
+					barn={farm?.barn ?? {}}
+					message={npcMessage}
+					thanks={npcThanks}
+					busy={npcBusy}
+					onClose={closeNpc}
+					onAcknowledge={acknowledgeIntro}
+					onDismissThanks={dismissThanks}
+					onSell={sellToNpc}
+					onBuySeeds={buyNpcSeeds}
+				/>
 			)}
 			<TravelMenu />
 			{fishingOpen && <FishingOverlay onClose={closeFishing} />}

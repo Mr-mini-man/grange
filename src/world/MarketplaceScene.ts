@@ -7,16 +7,20 @@ import {
 	MARKETPLACE_BANK_ENTRANCE,
 	MARKETPLACE_HARDWARE_ENTRANCE,
 	MARKETPLACE_COLUMNS,
-	MARKETPLACE_WIDTH,
+	MARKETPLACE_MIN_COLUMN,
+	MARKETPLACE_MIN_ROW,
 	MARKETPLACE_PLAYER_SPAWN,
 	MARKETPLACE_PRODUCE_MARKET_ENTRANCE,
+	MARKETPLACE_ROWS,
 	MARKETPLACE_SEED_MARKET_ENTRANCE,
 	MARKETPLACE_TRAIN_DEPOT,
 	MARKETPLACE_TRAIN_STOP,
+	MARKETPLACE_WIDTH,
 	marketplaceProps,
 	marketplaceTerrainAt,
 } from "./marketplaceData";
 import { marketplaceImages } from "./marketplaceResources";
+import { TILE_SIZE } from "./mapData";
 import { marketplaceWalkObstacles } from "./sceneObstacles";
 import { addProps, addTerrain } from "./sceneRendering";
 import { findTrainRest, TrainController } from "./train";
@@ -35,7 +39,7 @@ export class MarketplaceScene extends WalkingScene {
 		onAreaChange: (area: WorldArea) => void,
 		onOpenMarket: (market: MarketId) => void,
 		onOpenTravel: () => void,
-		onPlayerPosition: (x: number, y: number) => void,
+		onPlayerPosition: (position: { x: number; y: number }) => void,
 	) {
 		super({
 			area: "Marketplace",
@@ -43,6 +47,8 @@ export class MarketplaceScene extends WalkingScene {
 			hubArea: "marketplace",
 			obstacles: marketplaceWalkObstacles,
 			worldWidth: MARKETPLACE_WIDTH,
+			worldMinX: MARKETPLACE_MIN_COLUMN * TILE_SIZE,
+			worldMinY: MARKETPLACE_MIN_ROW * TILE_SIZE,
 			interactions: [
 				{
 					position: ex.vec(MARKETPLACE_TRAIN_STOP.x, MARKETPLACE_TRAIN_STOP.y),
@@ -116,7 +122,14 @@ export class MarketplaceScene extends WalkingScene {
 
 	override onInitialize(): void {
 		this.backgroundColor = ex.Color.fromHex("#79a44d");
-		addTerrain(this, marketplaceTerrainAt, MARKETPLACE_COLUMNS);
+		addTerrain(
+			this,
+			marketplaceTerrainAt,
+			MARKETPLACE_COLUMNS,
+			MARKETPLACE_ROWS,
+			MARKETPLACE_MIN_COLUMN,
+			MARKETPLACE_MIN_ROW,
+		);
 		addProps(this, marketplaceProps, marketplaceImages);
 		this.train = new TrainController(
 			findTrainRest(marketplaceProps),

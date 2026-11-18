@@ -36,7 +36,7 @@ interface WorldEngineOptions {
 	setHud: Dispatch<SetStateAction<FarmHudSnapshot>>;
 	setEngineReady: (ready: boolean) => void;
 	setMarket: (market: MarketId) => void;
-	setPlayerPos: (x: number, y: number) => void;
+	setPlayerPos: (position: { x: number; y: number }) => void;
 }
 
 interface SceneCallbacks {
@@ -47,6 +47,7 @@ interface SceneCallbacks {
 	setCasinoOverlay: (overlay: CasinoOverlay | null) => void;
 	setFishingOpen: (open: boolean) => void;
 	openHouseMenu: () => void;
+	openNpcTrade: () => void;
 	openFarmTravelMenu: () => void;
 	openMarketplaceTravelMenu: () => void;
 }
@@ -78,6 +79,7 @@ export function useWorldEngine(
 		setCasinoOverlay,
 		setFishingOpen,
 		openHouseMenu,
+		openNpcTrade,
 		openFarmTravelMenu,
 		openMarketplaceTravelMenu,
 	} = options;
@@ -92,7 +94,10 @@ export function useWorldEngine(
 			canvasElement: canvas,
 			viewport: { width: MAP_WIDTH, height: MAP_HEIGHT },
 			resolution: { width: MAP_WIDTH, height: MAP_HEIGHT },
-			displayMode: ex.DisplayMode.FitContainer,
+			// Fill the browser instead of letterboxing the 3:2 map. Outdoor
+			// scenes paint scenic land into the extra width; indoor rooms zoom
+			// just enough to cover it (see `WalkingScene.applyViewport`).
+			displayMode: ex.DisplayMode.FitContainerAndFill,
 			pixelArt: true,
 			suppressConsoleBootMessage: true,
 			backgroundColor: ex.Color.fromHex("#79a44d"),
@@ -109,6 +114,7 @@ export function useWorldEngine(
 				setFishingOpen(true);
 			},
 			openHouseMenu,
+			openNpcTrade,
 			openFarmTravelMenu,
 		);
 		scene.onFarmUpdate = (snapshot) => {
@@ -241,6 +247,7 @@ export function useWorldEngine(
 		setCasinoOverlay,
 		setFishingOpen,
 		openHouseMenu,
+		openNpcTrade,
 		openFarmTravelMenu,
 		openMarketplaceTravelMenu,
 	]);

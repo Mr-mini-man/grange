@@ -1,47 +1,50 @@
 import * as ex from "excalibur";
 import type { FarmToolId } from "../../shared/farm";
-import { useGameStore } from "../store";
 import { isInventoryBlockingInput } from "../inventory/inventoryStore";
 import { farmToolForItem } from "../inventory/items";
+import { useGameStore } from "../store";
 import { BlockRegistry } from "./blocking";
-import { ComboController } from "./farmCombo";
 import { useComboStore } from "./comboStore";
-import { CropLayer } from "./cropLayer";
-import { FenceLayer } from "./fenceRendering";
-import { FencePlacementPreview } from "./FencePlacementPreview";
-import { FrameClock } from "./frameClock";
 import { AnimalLayer } from "./AnimalLayer";
 import { AnimalPlacementPreview } from "./AnimalPlacementPreview";
-import { SprinklerPlacementPreview } from "./SprinklerPlacementPreview";
-import { SprinklerLayer } from "./sprinklerRendering";
+import { CropLayer } from "./cropLayer";
 import { selectedFarmItem } from "./fenceActions";
-import { performFarmAction } from "./farmActionRunner";
-import { canRearrangeProps } from "./farmPropActions";
+import { FenceLayer } from "./fenceRendering";
+import { FencePlacementPreview } from "./FencePlacementPreview";
 import { FarmBarn } from "./FarmBarn";
-import { FarmPropLayer } from "./farmPropLayer";
-import { FarmPlacementPreview } from "./FarmPlacementPreview";
-import { FarmTravel } from "./FarmTravel";
-import { FarmFishing } from "./farmFishing";
-import { canEditFarm } from "./farmPermissions";
-import { FarmScenePresence } from "./farmScenePresence";
-import { FarmToolInput } from "./farmToolInput";
+import { performFarmAction } from "./farmActionRunner";
+import { ComboController } from "./farmCombo";
 import { updateFarmerGraphics } from "./farmerSprite";
-import { createFarmPlayer, followFarmPlayer } from "./farmSceneSetup";
-import { hoveredFarmTile, type FarmHoveredTile, type FarmHudSnapshot } from "./farmHud";
-import { TOOL_HINTS } from "./farmTools";
-import { FarmTileSync } from "./farmSceneTiles";
-import { nearbyGate, toggleGate } from "./gateInteraction";
+import { FarmFishing } from "./farmFishing";
+import type { FarmHudSnapshot } from "./farmHud";
+import { FarmNpc } from "./farmNpc";
+import { npcAnchor, npcPrompt } from "./farmNpcPosition";
+import { canEditFarm } from "./farmPermissions";
+import { FarmPlacementPreview } from "./FarmPlacementPreview";
+import { canRearrangeProps } from "./farmPropActions";
+import { FarmPropLayer } from "./farmPropLayer";
+import { FarmSceneHud } from "./farmSceneHud";
 import { farmActionOnSpace } from "./farmSceneInput";
-import { PlayerReach } from "./interaction";
-import { InputManager } from "./InputManager";
+import { FarmScenePresence } from "./farmScenePresence";
+import { createFarmPlayer, followFarmPlayer } from "./farmSceneSetup";
+import { FarmTileSync } from "./farmSceneTiles";
+import { FarmToolInput } from "./farmToolInput";
 import { buildTerrain, paintFarmTerrain } from "./farmTerrain";
-import { FARM_HOUSE_REACH, MAP_HEIGHT, MAP_WIDTH, props } from "./mapData";
+import { FarmTravel } from "./FarmTravel";
+import { FrameClock } from "./frameClock";
+import { nearbyGate, toggleGate } from "./gateInteraction";
+import { InputManager } from "./InputManager";
+import { MAP_HEIGHT, MAP_WIDTH, props } from "./mapData";
+import { shouldShowNpc } from "./npcStore";
 import { updateFarmPlayer } from "./playerMovement";
 import { setFarmLandLevel } from "./sceneObstacles";
+import { SprinklerPlacementPreview } from "./SprinklerPlacementPreview";
+import { SprinklerLayer } from "./sprinklerRendering";
 import { SweepFx } from "./sweepFx";
 import { findTrainRest, TrainController } from "./train";
 import { farmTrainOptions } from "./trainOptions";
 import type { SceneActivationData, WorldArea } from "./WalkingScene";
+import { publishViewTransform } from "./viewTransform";
 
 export class FarmMapScene extends ex.Scene<SceneActivationData> {
 	onFarmUpdate: ((snapshot: FarmHudSnapshot) => void) | null = null;
@@ -65,14 +68,16 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 	private readonly sprinklerPlacement = new SprinklerPlacementPreview(this);
 	private paintedLandLevel = -1;
 	private toolInput!: FarmToolInput;
-	private message = TOOL_HINTS.hoe;
-	private hovered: FarmHoveredTile | null = null;
-	private readonly reach = new PlayerReach((message) => this.report(message));
-	private lastWorldPos: ex.Vector | null = null;
+	private readonly hud = new FarmSceneHud((snapshot) =>
+		this.onFarmUpdate?.(snapshot),
+	);
 	private deactivated = false;
 	private readonly travel: FarmTravel;
 	private readonly barn: FarmBarn;
 	private readonly fishing: FarmFishing;
+	private readonly onOpenHouse: () => void;
+	private readonly onTalkToNpc: () => void;
+	private npc?: FarmNpc;
 	private train!: TrainController;
 	private presence?: FarmScenePresence;
 	private paused = false;
@@ -85,14 +90,15 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 		onPromptChange: (prompt: string | null) => void,
 		onAreaChange: (area: WorldArea) => void,
 		onFish: () => void,
-		private readonly onOpenHouse: () => void,
+		onOpenHouse: () => void,
+		onTalkToNpc: () => void,
 		onOpenTravel: () => void,
 	) {
 		super();
-		this.fishing = new FarmFishing(
-			isOwner,
-			onFish,
-			(prompt) => onPromptChange(prompt),
+		this.onOpenHouse = onOpenHouse;
+		this.onTalkToNpc = onTalkToNpc;
+		this.fishing = new FarmFishing(isOwner, onFish, (prompt) =>
+			onPromptChange(prompt),
 		);
 		this.travel = new FarmTravel(
 			(prompt) => this.fishing.setTravelPrompt(prompt),
@@ -132,7 +138,10 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 		this.train = new TrainController(findTrainRest(props), this, farmTrainOptions());
 
 		this.player = createFarmPlayer(this);
-		this.presence = new FarmScenePresence(this, this.player, (text) => this.report(text));
+		this.presence = new FarmScenePresence(this, this.player, (text) =>
+			this.hud.report(text),
+		);
+		this.npc = new FarmNpc(this);
 
 		this.toolInput = new FarmToolInput({
 			owner: this.owner,
@@ -145,12 +154,14 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 			sprinklerPlacement: this.sprinklerPlacement,
 			animalPlacement: this.animalPlacement,
 			animals: this.animals,
-			canEdit: () => canEditFarm(useGameStore.getState().activeFarm, this.isOwner),
+			canEdit: () =>
+				canEditFarm(useGameStore.getState().activeFarm, this.isOwner),
 			canRearrangeProps: () => canRearrangeProps(this.isOwner),
 			isDeactivated: () => this.deactivated,
-			report: (message) => this.report(message),
-			reportReadOnly: () => this.report("The owner has visitor editing off."),
-			updateHover: (pos) => this.updateHover(pos),
+			report: (message) => this.hud.report(message),
+			reportReadOnly: () =>
+				this.hud.report("The owner has visitor editing off."),
+			updateHover: (pos) => this.hud.hover(pos),
 			performAction: (column, row) => this.performAction(column, row),
 			bonkAt: (pos) => this.presence?.bonkAt(pos.x, pos.y) ?? false,
 		});
@@ -161,8 +172,7 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 	}
 
 	setHeldTool(tool: FarmToolId | null): void {
-		this.message = tool ? TOOL_HINTS[tool] : "Select a tool or item first.";
-		if (this.player && !this.deactivated) this.emitHud();
+		this.hud.setTool(tool);
 	}
 
 	/** The hotbar reports a slot change so the combo tracker grants its grace. */
@@ -182,7 +192,7 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 		this.presence?.update(0);
 	}
 
-	override onPreUpdate(_engine: ex.Engine, _delta: number): void {
+	override onPreUpdate(engine: ex.Engine, _delta: number): void {
 		const step = this.frameClock.step();
 		const selected = selectedFarmItem();
 		const blocked = isInventoryBlockingInput();
@@ -228,36 +238,53 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 		}
 
 		const dir = this.inputManager.getMovementVector();
-		updateFarmPlayer(this.player, dir, step, this.combo.moveSpeed, farm?.land_level ?? 0);
-		followFarmPlayer(this.camera, this.player.pos, farm?.land_level ?? 0);
+		updateFarmPlayer(
+			this.player,
+			dir,
+			step,
+			this.combo.moveSpeed,
+			farm?.land_level ?? 0,
+			this.hud.landBorderHint,
+		);
+		followFarmPlayer(this.camera, this.player.pos, farm?.land_level ?? 0, engine);
+		publishViewTransform(engine, this.camera);
 		updateFarmerGraphics(this.player, dir);
 
-		if (this.reach.moved(this.player.pos)) this.emitHud();
+		this.hud.trackPlayer(this.player.pos);
 
 		const gate = nearbyGate(farm?.gates ?? [], this.player.pos);
-		const housePrompt = this.housePrompt();
+		const npc = shouldShowNpc(this.isOwner)
+			? npcAnchor(this.farmProps.position("farmhouse"))
+			: null;
+		this.npc?.place(npc);
+		const housePrompt = this.travel.housePrompt(
+			this.isOwner,
+			this.player.pos,
+			this.farmProps.position("farmhouse"),
+		);
 		this.travel.update(
 			this.player,
 			this.inputManager,
 			this.train,
 			gate?.prompt ?? this.barn.prompt(this.player, this.farmProps),
+			npcPrompt(this.player.pos, npc),
+			this.onTalkToNpc,
 			housePrompt,
 			this.onOpenHouse,
 		);
 		if (gate && this.inputManager.consumePress("KeyE", "Enter")) {
-			toggleGate(this.owner, gate.gate, (message) => this.report(message));
+			toggleGate(this.owner, gate.gate, (message) => this.hud.report(message));
 		}
 		// The barn claims E before fishing drains it, but only while in reach.
 		this.barn.update(this.player, this.inputManager, this.farmProps);
 		this.fishing.update(this.player.pos.y, this.inputManager);
 
-		if (canEditFarm(farm, this.isOwner)) farmActionOnSpace(this.inputManager, this.player.pos,
-			(column, row) => this.performAction(column, row));
+		if (canEditFarm(farm, this.isOwner))
+			farmActionOnSpace(this.inputManager, this.player.pos, (column, row) =>
+				this.performAction(column, row),
+			);
 		const changed = this.tileSync.sync(useGameStore.getState().activeFarm);
-		if (changed) {
-			if (this.lastWorldPos) this.updateHover(this.lastWorldPos);
-			else this.emitHud();
-		}
+		if (changed) this.hud.refresh();
 		this.tileSync.syncGrowing(useGameStore.getState().activeFarm, Date.now());
 		this.sweepFx.update(step);
 		this.combo.update();
@@ -304,39 +331,10 @@ export class FarmMapScene extends ex.Scene<SceneActivationData> {
 		useComboStore.getState().clearCombo();
 	}
 
-	private housePrompt(): string | null {
-		if (!this.isOwner) return null;
-		const house = this.farmProps.position("farmhouse");
-		if (!house) return null;
-		const distance = Math.hypot(this.player.pos.x - house.x, this.player.pos.y - house.y);
-		return distance <= FARM_HOUSE_REACH ? "Press E or Enter to enter the farmhouse" : null;
-	}
-
 	private performAction(column: number, row: number): void {
 		performFarmAction(this.owner, this.combo, this.sweepFx, column, row, {
-			message: (text) => this.report(text),
+			message: (text) => this.hud.report(text),
 			shake: () => this.camera.shake(2, 2, 180),
-		});
-	}
-
-	private report(text: string): void {
-		this.message = text;
-		this.emitHud();
-	}
-
-	private updateHover(worldPos: ex.Vector): void {
-		this.lastWorldPos = worldPos.clone();
-		this.hovered = hoveredFarmTile(worldPos.x, worldPos.y,
-			useGameStore.getState().activeFarm);
-		this.emitHud();
-	}
-
-	private emitHud(): void {
-		this.onFarmUpdate?.({
-			tomatoes: useGameStore.getState().activeFarm?.tomatoes ?? 0,
-			message: this.message,
-			hovered: this.hovered,
-			player: this.player ? { x: this.player.pos.x, y: this.player.pos.y } : { x: 0, y: 0 },
 		});
 	}
 }
