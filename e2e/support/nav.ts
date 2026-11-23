@@ -30,9 +30,11 @@ export async function expectArea(
 	label: RegExp,
 	timeout = TRAVEL_TIMEOUT,
 ): Promise<void> {
-	await expect(page.locator("canvas")).toHaveAttribute("aria-label", label, {
-		timeout,
-	});
+	await expect(page.locator("canvas.farm-map-canvas")).toHaveAttribute(
+		"aria-label",
+		label,
+		{ timeout },
+	);
 }
 
 /**

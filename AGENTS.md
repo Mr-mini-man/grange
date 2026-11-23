@@ -831,7 +831,13 @@ chance = (0.0015 + (synergyActive ? 0.0025 : 0)) * comboMultiplier
 - Owners place them from the hotbar: Gate = slot 5/key `5`, Fence = slot
   6/key `6`, Shovel = slot 7/key `7`.
 - Default supply: 20 fences, 2 gates; tracked on `farms.fence_count` /
-  `farms.gate_count`.
+  `farms.gate_count`. The hotbar mirrors that supply; when it hits zero the
+  stack leaves the inventory (no zero-count "phantom" icon), and the next
+  hardware purchase refills the first free slot.
+- Fence posts sit on tile corners, including the outer corners of the owned
+  land (`x minColumn..maxColumn+1`, `y minRow..10`). The bottom-center HUD only
+  makes the hotbar clickable so the southern border stays reachable behind the
+  status readout.
 - Rails are derived from neighboring posts. Placing or removing any post
   re-aims adjacent gates: horizontal neighbor wins, then vertical, then
   horizontal default.

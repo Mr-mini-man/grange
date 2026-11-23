@@ -11,16 +11,35 @@ export function selectedFarmItem() {
 	return inventory.hotbar[inventory.selectedHotbar]?.itemId ?? null;
 }
 
+/** True when a post already stands on this corner or the player is on it. */
+function fenceCornerOccupied(farm: ActiveFarm, column: number, row: number,
+	player: { x: number; y: number }): boolean {
+	const key = fenceKey(column, row);
+	return (farm.fences ?? []).some(({ x, y }) => fenceKey(x, y) === key) ||
+		(farm.gates ?? []).some(({ x, y }) => fenceKey(x, y) === key) ||
+		Math.hypot(player.x - column * TILE_SIZE, player.y - row * TILE_SIZE) < 16;
+}
+
 export function fencePlacementReason(farm: ActiveFarm,
 	column: number, row: number, _blocks: BlockRegistry,
 	player: { x: number; y: number }): string | null {
 	if (!ownsFenceCorner(column, row, farm.land_level ?? 0))
 		return "Buy this land from the mayor first.";
 	if (farm.fence_count <= 0) return "No fences left in inventory.";
-	if ((farm.fences ?? []).some(({ x, y }) => fenceKey(x, y) === fenceKey(column, row)) ||
-		(farm.gates ?? []).some(({ x, y }) => fenceKey(x, y) === fenceKey(column, row)) ||
-		Math.hypot(player.x - column * TILE_SIZE, player.y - row * TILE_SIZE) < 16)
+	if (fenceCornerOccupied(farm, column, row, player))
 		return "That fence corner is occupied.";
+	return null;
+}
+
+/** A gate shares the fence corner rules but reports its own supply message. */
+export function gatePlacementReason(farm: ActiveFarm,
+	column: number, row: number,
+	player: { x: number; y: number }): string | null {
+	if (!ownsFenceCorner(column, row, farm.land_level ?? 0))
+		return "Buy this land from the mayor first.";
+	if (farm.gate_count <= 0) return "No gates left in inventory.";
+	if (fenceCornerOccupied(farm, column, row, player))
+		return "That gate corner is occupied.";
 	return null;
 }
 
@@ -39,12 +58,8 @@ export function actOnFence(owner: string, column: number, row: number,
 		if (reason) { report(reason); return; }
 	}
 	if (item === "gate") {
-		if (!ownsFenceCorner(column, row, farm.land_level ?? 0) ||
-			fenceHere || gateHere || farm.gate_count <= 0 ||
-			Math.hypot(player.x - column * TILE_SIZE, player.y - row * TILE_SIZE) < 16) {
-			report("Place gates on a clear tile corner.");
-			return;
-		}
+		const reason = gatePlacementReason(farm, column, row, player);
+		if (reason) { report(reason); return; }
 	}
 
 	if (item === "shovel" && !fenceHere && !gateHere) {

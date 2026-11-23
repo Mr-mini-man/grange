@@ -70,6 +70,7 @@ defmodule Grange.FarmStore do
 
       farm ->
         barn = Barn.map(owner)
+        time = Grange.WorldClock.snapshot()
 
         %{
           owner: owner,
@@ -90,7 +91,10 @@ defmodule Grange.FarmStore do
           prop_overrides: FarmProps.overrides(owner),
           prop_inventory: FarmProps.inventory(owner),
           storage: BarnStorage.inventory(farm),
-          train: FarmTrain.view(farm)
+          train: FarmTrain.view(farm),
+          time: time,
+          cycle_time_ms: time.cycle_time_ms,
+          day_phase: time.phase
         }
     end
   end

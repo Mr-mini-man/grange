@@ -16,7 +16,10 @@
 	flex-direction: column;
 	align-items: center;
 	gap: 0.4rem;
-	pointer-events: auto;
+	/* Only the hotbar is interactive. Leaving the wrapper clickable made its
+	   empty chrome (and the status readout) swallow world clicks along the
+	   south border, so fences could not be placed there. */
+	pointer-events: none;
 }
 
 .hud-status {
@@ -97,6 +100,7 @@
 	border: 1px solid rgba(58, 44, 30, 0.55);
 	border-radius: 0.5rem;
 	background: rgba(38, 28, 20, 0.82);
+	pointer-events: auto;
 }
 
 .hud-bottom-right {

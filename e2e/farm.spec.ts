@@ -10,6 +10,7 @@ import {
 	registerFast,
 	tapFarmTile,
 	uniqueName,
+	waitForWorld,
 	walkUntilPrompt,
 	worldPoint,
 } from "./helpers";
@@ -168,6 +169,47 @@ test("a gate places, opens with E, and returns to inventory when shoveled", asyn
 		"data-count",
 		"2",
 	);
+});
+
+test("the last gate leaves the hotbar instead of a zero-count phantom", async ({
+	page,
+}) => {
+	await registerFast(page, uniqueName("GateOut"));
+	const gateSlot = page.getByTestId("hotbar").getByTestId("slot-hotbar-4");
+	await expect(gateSlot).toHaveAttribute("data-count", "2");
+
+	await page.keyboard.press("5");
+	await clickWorld(page, 9 * TILE_SIZE + 4, 9 * TILE_SIZE + 4);
+	await expect(gateSlot).toHaveAttribute("data-count", "1");
+
+	// The second and last gate empties the stack: an icon with no count would
+	// read as "one gate left" and then refuse placement.
+	await clickWorld(page, 8 * TILE_SIZE + 4, 9 * TILE_SIZE + 4);
+	await expect(gateSlot).toHaveAttribute("data-count", "0");
+	await expect(gateSlot).toHaveAttribute("data-item", "");
+});
+
+test("a fence reaches the southern world border under the HUD", async ({
+	page,
+}) => {
+	test.setTimeout(150_000);
+	await registerFast(page, uniqueName("BorderFence"));
+	await page.request.post("/api/economy/transaction", {
+		data: { delta: 10_000 },
+	});
+	for (let level = 1; level <= 5; level += 1) {
+		await page.request.post("/api/land/buy", { data: {} });
+	}
+	await page.reload();
+	await waitForWorld(page);
+
+	// Stand on the shore near the middle of the map. The (12, 10) post is the
+	// world border, and its click point falls under the bottom-center HUD.
+	await movePlayerNear(page, 800, 660, 24, { reach: 24, timeout: 30_000 });
+	await page.keyboard.press("6");
+	await clickWorld(page, 12 * TILE_SIZE, 10 * TILE_SIZE);
+	await expect(page.getByTestId("hotbar").getByTestId("slot-hotbar-5"))
+		.toHaveAttribute("data-count", "19");
 });
 
 test("fence placement previews on hold and commits only on a valid release", async ({

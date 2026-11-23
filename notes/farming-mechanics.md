@@ -104,6 +104,13 @@ horizontal. A closed gate has the same collision as a fence rail and post. Walki
 only the rail they cover, so players can walk through the gap. Gate open state and direction
 persist in `farm_gates`; `farms.gate_count` tracks the remaining supply.
 
+The hotbar mirrors those two supplies, and a supply of zero removes the item from
+the inventory entirely, so a depleted fence or gate stack cannot linger as a
+zero-count icon that still refuses placement. The bottom-center HUD only makes
+the hotbar itself clickable; its status readout and surrounding space let world
+clicks through, which keeps the southern map border (where fence posts sit)
+placeable behind the HUD.
+
 The old placeholders (`farm/plants/tomato-plant.webp`, `farm/plants/wheat.webp`,
 `farm/plants/leafy-greens.webp`, `farm/objects/scythe.svg`) were removed and
 `farm/manifest.json` was updated with `crops` and `tools` sections.

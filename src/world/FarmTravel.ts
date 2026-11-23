@@ -25,6 +25,7 @@ export class FarmTravel {
 		private readonly onAreaChange: (area: WorldArea) => void,
 		private readonly onOpenMenu: () => void,
 		private readonly isOwner: boolean,
+		private readonly isNight: () => boolean = () => false,
 	) {}
 
 	/**
@@ -75,13 +76,17 @@ export class FarmTravel {
 			if (input.consumePress("KeyE", "Enter")) onOpenHouse();
 			return;
 		}
+		const nearTrain = isNearFarmTrain(player.pos.x, player.pos.y);
+		if (nearTrain && this.isNight()) {
+			this.setPrompt("The Hub World Market is closed at night.");
+			return;
+		}
 		// Boarding works anywhere on the train; at the cart end the owner can
 		// also press C to open the cargo window. Splitting the key keeps the
 		// walk-up-and-board flow unchanged while cargo stays reachable.
-		if (isNearFarmTrain(player.pos.x, player.pos.y) && train.canBoard()) {
+		if (nearTrain && train.canBoard()) {
 			const atCarts =
-				this.isOwner &&
-				isNearFarmTrainCart(player.pos.x, player.pos.y);
+				this.isOwner && isNearFarmTrainCart(player.pos.x, player.pos.y);
 			this.setPrompt(atCarts ? BOARD_PROMPT + CARGO_HINT : BOARD_PROMPT);
 			if (input.consumePress("KeyE", "Enter")) {
 				this.setPrompt(null);

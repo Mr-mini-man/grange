@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActiveFarm } from "../../shared/types";
 import { BlockRegistry } from "./blocking";
-import { fencePlacementReason } from "./fenceActions";
+import { fencePlacementReason, gatePlacementReason } from "./fenceActions";
 import { terrainAt } from "./mapData";
 
 const farm: ActiveFarm = {
@@ -49,5 +49,30 @@ describe("fence placement after gate integration", () => {
 			placed_animals: [{ id: 1, species: "hen", x: 5, y: 4 }],
 		};
 		expect(fencePlacementReason(withTile, 5, 4, new BlockRegistry(), player)).toBeNull();
+	});
+});
+
+describe("gate placement reasons", () => {
+	it("names an empty gate supply before the occupied corner", () => {
+		expect(gatePlacementReason({ ...farm, gate_count: 0 }, 5, 4,
+			{ x: 5 * 64, y: 4 * 64 })).toBe("No gates left in inventory.");
+	});
+
+	it("rejects a fence post, another gate, or the player's own corner", () => {
+		const withFence = { ...farm, fences: [{ x: 5, y: 4 }] };
+		const withGate = { ...farm,
+			gates: [{ x: 5, y: 4, direction: "horizontal" as const, open: false }] };
+		expect(gatePlacementReason(withFence, 5, 4, player))
+			.toBe("That gate corner is occupied.");
+		expect(gatePlacementReason(withGate, 5, 4, player))
+			.toBe("That gate corner is occupied.");
+		expect(gatePlacementReason(farm, 5, 4, { x: 5 * 64 + 4, y: 4 * 64 + 4 }))
+			.toBe("That gate corner is occupied.");
+	});
+
+	it("keeps unowned and clear corners distinct", () => {
+		expect(gatePlacementReason(farm, 19, 5, player))
+			.toBe("Buy this land from the mayor first.");
+		expect(gatePlacementReason(farm, 5, 4, player)).toBeNull();
 	});
 });

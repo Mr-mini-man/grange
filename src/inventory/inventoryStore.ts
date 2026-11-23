@@ -275,14 +275,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
 
 	setItemCount: (itemId, count) => {
 		const state = get();
-		const keepsEmptySlot = itemId === "fence" || itemId === "gate";
-		const next = reconcileItemCount(
-			state.grid,
-			state.hotbar,
-			itemId,
-			count,
-			keepsEmptySlot,
-		);
+		const next = reconcileItemCount(state.grid, state.hotbar, itemId, count);
 		set({ grid: next.grid, hotbar: next.hotbar });
 	},
 
