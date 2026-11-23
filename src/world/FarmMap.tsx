@@ -21,7 +21,7 @@ import { ComboCounter } from "./ComboCounter";
 import type { FarmMapScene } from "./FarmMapScene";
 import { FarmStatusHud } from "./FarmStatusHud";
 import { FishingOverlay } from "./FishingOverlay";
-import type { FarmHudSnapshot } from "./farmHud";
+import { type FarmHudSnapshot, INITIAL_FARM_HUD } from "./farmHud";
 import { subscribeFarmPeers } from "./farmPresence";
 import "./farmMap.css";
 import { HouseMenu } from "./HouseMenu";
@@ -71,12 +71,7 @@ export default function FarmMap() {
 	const setPaused = usePauseStore((s) => s.setPaused);
 	const { owner } = useParams<{ owner?: string }>();
 	const navigate = useNavigate();
-	const [hud, setHud] = useState<FarmHudSnapshot>({
-		tomatoes: 0,
-		message: "Hoe: click or drag on grass to till.",
-		hovered: null,
-		player: { x: 0, y: 0 },
-	});
+	const [hud, setHud] = useState<FarmHudSnapshot>(INITIAL_FARM_HUD);
 
 	const target = owner ?? username;
 	const isOwner = target === username;

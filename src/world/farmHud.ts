@@ -14,6 +14,14 @@ export interface FarmHudSnapshot {
 	player: { x: number; y: number };
 }
 
+/** The HUD state before the first scene update lands. */
+export const INITIAL_FARM_HUD: FarmHudSnapshot = {
+	tomatoes: 0,
+	message: "Hoe: click or drag on grass to till.",
+	hovered: null,
+	player: { x: 0, y: 0 },
+};
+
 export function hoveredFarmTile(x: number, y: number,
 	farm: ActiveFarm | null): FarmHoveredTile | null {
 	const column = Math.floor(x / TILE_SIZE);
