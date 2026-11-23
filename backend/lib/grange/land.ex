@@ -3,7 +3,13 @@ defmodule Grange.Land do
 
   alias Grange.{FarmRecord, FarmStore, Repo, User}
 
-  @prices [250, 500, 1000, 2000]
+  @prices [250, 500, 1000, 2000, 4000]
+
+  # Full farm world extents. The final land purchase unlocks all of it.
+  @world_min_x -6
+  @world_max_x 24
+  @world_min_y -4
+  @world_walk_max_y 9
 
   def prices, do: @prices
 
@@ -29,7 +35,8 @@ defmodule Grange.Land do
       b = bounds(level)
       x >= b.min_x and x <= b.max_x + 1 and y >= b.min_y and y <= 10
     else
-      x in -2..19 and y in -4..9
+      x >= @world_min_x and x <= @world_max_x and
+        y >= @world_min_y and y <= @world_walk_max_y
     end
   end
 
@@ -37,15 +44,17 @@ defmodule Grange.Land do
 
   def bounds(level) do
     %{
-      min_x: if(level >= 2, do: -2, else: 0),
-      max_x: if(level >= 3, do: 19, else: 17),
-      min_y: if(level >= 4, do: -4, else: if(level >= 1, do: -2, else: 0))
+      min_x: if(level >= 5, do: @world_min_x, else: if(level >= 2, do: -2, else: 0)),
+      max_x: if(level >= 5, do: @world_max_x, else: if(level >= 3, do: 19, else: 17)),
+      min_y: if(level >= 4, do: @world_min_y, else: if(level >= 1, do: -2, else: 0))
     }
   end
 
   def owned?(x, y, level) when is_integer(x) and is_integer(y) do
     b = bounds(level)
-    x >= b.min_x and x <= b.max_x and y >= b.min_y and y <= 9
+
+    x >= b.min_x and x <= b.max_x and
+      y >= b.min_y and y <= @world_walk_max_y
   end
 
   def owned?(_x, _y, _level), do: false

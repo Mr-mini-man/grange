@@ -25,6 +25,7 @@ export {
 	clickWorld,
 	farmTilePosition,
 	hoverFarmTile,
+	movePlayerIntoReach,
 	movePlayerNear,
 	playerPosition,
 	tapFarmTile,

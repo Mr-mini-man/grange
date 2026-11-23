@@ -18,10 +18,10 @@ import {
 test("farmhouse settings control visitors and farm presence", async ({
 	twoPlayers,
 }) => {
-	// Two browser contexts sharing four vCPUs with the other workers: the
-	// default 90s budget is tight when the runner is busy, and a timeout here
-	// aborts an otherwise-healthy run.
-	test.setTimeout(180_000);
+	// Two browser contexts sharing the runner with other workers: the default
+	// 90s budget is tight when the runner is busy, and a timeout here aborts an
+	// otherwise-healthy run.
+	test.setTimeout(240_000);
 
 	const [owner, guest] = await twoPlayers();
 	const ownerName = uniqueName("Owner");
@@ -98,7 +98,7 @@ test("farmhouse settings control visitors and farm presence", async ({
 	await clickWorld(owner, victim.x, victim.y - 32);
 	await expect(owner.getByTestId("farm-hint")).toContainText("BONK!");
 
-	await expect(guest.locator("canvas")).toHaveAttribute(
+	await expect(guest.locator("canvas.farm-map-canvas")).toHaveAttribute(
 		"aria-label",
 		/^Farm map/,
 	);

@@ -46,25 +46,42 @@ describe("inventory slots", () => {
 		expect(useInventoryStore.getState().hotbar[1]?.itemId).toBeNull();
 	});
 
-	it("syncs server fence and gate stock without losing their slots", () => {
+	it("removes a depleted fence or gate stack from the hotbar", () => {
 		const store = useInventoryStore.getState();
 		store.selectHotbar(5);
 		store.setItemCount("fence", 0);
+		expect(useInventoryStore.getState().hotbar[5]?.itemId).toBeNull();
+		expect(countItem(useInventoryStore.getState(), "fence")).toBe(0);
+
+		store.setItemCount("fence", 19);
 		expect(useInventoryStore.getState().hotbar[5]).toMatchObject({
 			itemId: "fence",
-			count: 0,
+			count: 19,
 		});
-		store.setItemCount("fence", 19);
-		expect(countItem(useInventoryStore.getState(), "fence")).toBe(19);
 
 		store.selectHotbar(4);
 		store.setItemCount("gate", 0);
+		expect(useInventoryStore.getState().hotbar[4]?.itemId).toBeNull();
+		expect(countItem(useInventoryStore.getState(), "gate")).toBe(0);
+
+		store.setItemCount("gate", 1);
 		expect(useInventoryStore.getState().hotbar[4]).toMatchObject({
 			itemId: "gate",
-			count: 0,
+			count: 1,
 		});
-		store.setItemCount("gate", 1);
-		expect(countItem(useInventoryStore.getState(), "gate")).toBe(1);
+	});
+
+	it("clears every fence stack when the supply is exhausted", () => {
+		const store = useInventoryStore.getState();
+		store.splitHalf({ area: "hotbar", index: 5 }, { area: "grid", index: 0 });
+		expect(countItem(useInventoryStore.getState(), "fence")).toBe(20);
+
+		store.setItemCount("fence", 0);
+		const state = useInventoryStore.getState();
+		expect(countItem(state, "fence")).toBe(0);
+		expect(
+			[...state.hotbar, ...state.grid].some((slot) => slot.itemId === "fence"),
+		).toBe(false);
 	});
 
 	it("keeps split fence stacks when the server total is unchanged", () => {

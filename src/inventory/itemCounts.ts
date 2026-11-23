@@ -5,28 +5,20 @@ function empty(): LayoutSlot {
 	return { itemId: null, count: 0 };
 }
 
-function firstFree(areas: LayoutSlot[][]): LayoutSlot | null {
-	for (const list of areas) {
-		for (const slot of list) {
-			if (!slot.itemId) return slot;
-		}
-	}
-	return null;
-}
-
 /**
  * Reconciles an authoritative item total with the current stack layout.
  *
  * Unlike a clear-and-place sync, this keeps existing stack positions when the
  * total is unchanged, so split fence, prop, and produce stacks survive a
- * refresh. Extra items fill partial stacks before opening a new slot.
+ * refresh. Extra items fill partial stacks before opening a new slot. A total
+ * of zero clears every stack of the item, so an exhausted fence/gate supply
+ * leaves the hotbar instead of lingering as a zero-count phantom.
  */
 export function reconcileItemCount(
 	grid: LayoutSlot[],
 	hotbar: LayoutSlot[],
 	itemId: ItemId,
 	rawCount: number,
-	keepZero = false,
 ): { grid: LayoutSlot[]; hotbar: LayoutSlot[] } {
 	const nextGrid = grid.map((slot) => ({ ...slot }));
 	const nextHotbar = hotbar.map((slot) => ({ ...slot }));
@@ -39,39 +31,13 @@ export function reconcileItemCount(
 	const current = slots.reduce((total, slot) => total + slot.count, 0);
 
 	if (desired === current) {
-		if (desired === 0 && keepZero && slots.length === 0) {
-			const free = firstFree(areas);
-			if (free) {
-				free.itemId = itemId;
-				free.count = 0;
-			}
-		}
 		return { grid: nextGrid, hotbar: nextHotbar };
 	}
 
 	if (desired === 0) {
-		if (!keepZero) {
-			for (const list of areas) {
-				for (let index = 0; index < list.length; index += 1) {
-					if (list[index].itemId === itemId) list[index] = empty();
-				}
-			}
-			return { grid: nextGrid, hotbar: nextHotbar };
-		}
-
-		let kept = false;
 		for (const list of areas) {
 			for (let index = 0; index < list.length; index += 1) {
-				if (list[index].itemId !== itemId) continue;
-				list[index] = kept ? empty() : { itemId, count: 0 };
-				kept = true;
-			}
-		}
-		if (!kept) {
-			const free = firstFree(areas);
-			if (free) {
-				free.itemId = itemId;
-				free.count = 0;
+				if (list[index].itemId === itemId) list[index] = empty();
 			}
 		}
 		return { grid: nextGrid, hotbar: nextHotbar };

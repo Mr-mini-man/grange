@@ -69,6 +69,7 @@ defmodule Grange.FarmStore do
 
       farm ->
         barn = Barn.map(owner)
+        time = Grange.WorldClock.snapshot()
 
         %{
           owner: owner,
@@ -88,7 +89,10 @@ defmodule Grange.FarmStore do
           visitor_edit: farm.visitor_edit,
           prop_overrides: FarmProps.overrides(owner),
           prop_inventory: FarmProps.inventory(owner),
-          storage: BarnStorage.inventory(farm)
+          storage: BarnStorage.inventory(farm),
+          time: time,
+          cycle_time_ms: time.cycle_time_ms,
+          day_phase: time.phase
         }
     end
   end
@@ -172,6 +176,7 @@ defmodule Grange.FarmStore do
       FarmGate,
       FarmSprinkler,
       FarmProp,
+      Grange.NpcQuestRecord,
       FarmAnimal,
       FarmRecord
     ]
@@ -203,10 +208,8 @@ defmodule Grange.FarmStore do
   end
 
   defp mutate_or_rollback(owner, actor, kind, x, y, opts) do
-    case mutate(owner, actor, kind, x, y, opts) do
-      {:error, reason} -> Repo.rollback(reason)
-      result -> result
-    end
+    with {:error, reason} <- mutate(owner, actor, kind, x, y, opts),
+         do: Repo.rollback(reason)
   end
 
   defp mutate(owner, _actor, :till, x, y, _opts) do

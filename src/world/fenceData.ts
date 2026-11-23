@@ -1,5 +1,11 @@
 import type { FenceGate, GateDirection } from "../../shared/types";
-import { farmBounds, TILE_SIZE } from "./mapData";
+import {
+	FARM_WORLD_MAX_COLUMN,
+	FARM_WORLD_MIN_COLUMN,
+	FARM_WORLD_MIN_ROW,
+	farmBounds,
+	TILE_SIZE,
+} from "./mapData";
 import type { WalkObstacle } from "./walkCollisions";
 
 export interface FenceCoord { x: number; y: number }
@@ -12,7 +18,9 @@ export const edgeKey = (edge: FenceEdge) =>
 	`${fenceKey(edge.from.x, edge.from.y)}|${fenceKey(edge.to.x, edge.to.y)}`;
 
 export const fenceInBounds = (x: number, y: number) =>
-	Number.isInteger(x) && Number.isInteger(y) && x >= -2 && x <= 20 && y >= -4 && y <= 10;
+	Number.isInteger(x) && Number.isInteger(y) &&
+	x >= FARM_WORLD_MIN_COLUMN && x <= FARM_WORLD_MAX_COLUMN + 1 &&
+	y >= FARM_WORLD_MIN_ROW && y <= 10;
 
 export function ownsFenceCorner(x: number, y: number, level: number): boolean {
 	const bounds = farmBounds(level);

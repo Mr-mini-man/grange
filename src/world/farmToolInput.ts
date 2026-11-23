@@ -160,6 +160,14 @@ export class FarmToolInput {
 		const item = selectedFarmItem();
 		this.host.updateHover(worldPos);
 
+		const farm = useGameStore.getState().activeFarm;
+		// Report an empty gate stack before reach: a depleted hold should say so
+		// instead of blaming the distance. Permissions still win on read-only
+		// farms.
+		if (item === "gate" && farm && farm.gate_count <= 0 && this.host.canEdit()) {
+			this.host.report("No gates left in inventory.");
+			return;
+		}
 		if (!withinInteractionRange(this.host.player.pos, worldPos)) {
 			this.host.report("Too far away to reach that.");
 			return;

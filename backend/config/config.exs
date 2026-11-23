@@ -9,6 +9,9 @@ config :grange, start_ticker: true
 # wall-clock time; the rate table lives in `Grange.BankInterest`.
 config :grange, bank_day_ms: 86_400_000
 
+# The global day/night clock broadcasts a snapshot every second in dev/prod.
+config :grange, start_world_clock: true
+
 config :grange, GrangeWeb.Endpoint,
   adapter: Bandit.PhoenixAdapter,
   url: [host: "localhost"],

@@ -1,5 +1,4 @@
 import { expect, type Page } from "@playwright/test";
-import { MAP_HEIGHT } from "../src/world/mapData";
 import { MARKETPLACE_PLAYER_SPAWN } from "../src/world/marketplaceData";
 import {
 	expectArea,
@@ -12,6 +11,7 @@ import {
 	waitForHubPeerGone,
 	waitForWorld,
 	walkUntilPrompt,
+	worldPoint,
 	worldUrl,
 } from "./helpers";
 
@@ -53,15 +53,14 @@ test("players share the marketplace, the casino, and their own farms", async ({
 	expect(await hubPeerList(alice)).not.toContain(aliceName);
 
 	// Both spawned at the same point, so Alice can bonk Bob with the shovel.
-	// The camera centres the local player, keeping the peer at the canvas
-	// midpoint; click above its feet to land inside the avatar's hit box.
-	const canvas = await alice.locator("canvas.farm-map-canvas").boundingBox();
-	if (!canvas) throw new Error("the marketplace canvas is not laid out");
+	// Click above the peer's feet to land inside the avatar's hit box.
 	await alice.keyboard.press("7");
-	await alice.mouse.click(
-		canvas.x + canvas.width / 2,
-		canvas.y + ((MARKETPLACE_PLAYER_SPAWN.y - 32) / MAP_HEIGHT) * canvas.height,
+	const peer = await worldPoint(
+		alice,
+		MARKETPLACE_PLAYER_SPAWN.x,
+		MARKETPLACE_PLAYER_SPAWN.y - 32,
 	);
+	await alice.mouse.click(peer.x, peer.y);
 	await expect(alice.getByTestId("notification-feed")).toContainText("BONK!");
 
 	// Bob leaves for the casino; he disappears from the marketplace.
