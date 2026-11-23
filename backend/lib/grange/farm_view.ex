@@ -5,7 +5,53 @@ defmodule Grange.FarmView do
 
   import Ecto.Query
 
-  alias Grange.{FarmRecord, Repo, Tile}
+  alias Grange.{
+    Barn,
+    BarnStorage,
+    FarmAnimals,
+    FarmFences,
+    FarmGates,
+    FarmProps,
+    FarmRecord,
+    FarmSprinklers,
+    FarmTrain,
+    Repo,
+    Tile,
+    WorldClock
+  }
+
+  @doc "The full active-farm projection sent to a joined channel and the lobby."
+  @spec active(FarmRecord.t()) :: map()
+  def active(farm) do
+    owner = farm.owner
+    barn = Barn.map(owner)
+    time = WorldClock.snapshot()
+
+    %{
+      owner: owner,
+      tiles: tiles(owner),
+      barn: barn,
+      tomatoes: Map.get(barn, "tomato", 0),
+      fences: FarmFences.list(owner),
+      fence_count: farm.fence_count,
+      gates: FarmGates.list(owner),
+      gate_count: farm.gate_count,
+      sprinklers: FarmSprinklers.list(owner),
+      sprinkler_count: farm.sprinkler_count,
+      animals: farm.animals,
+      placed_animals: FarmAnimals.list(owner),
+      land_level: farm.land_level,
+      is_public: farm.is_public,
+      visitor_edit: farm.visitor_edit,
+      prop_overrides: FarmProps.overrides(owner),
+      prop_inventory: FarmProps.inventory(owner),
+      storage: BarnStorage.inventory(farm),
+      train: FarmTrain.view(farm),
+      time: time,
+      cycle_time_ms: time.cycle_time_ms,
+      day_phase: time.phase
+    }
+  end
 
   @doc "The farm's tiles as plain maps ordered by position."
   @spec tiles(String.t()) :: [map()]

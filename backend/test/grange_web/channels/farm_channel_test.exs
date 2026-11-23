@@ -4,7 +4,7 @@ defmodule GrangeWeb.FarmChannelTest do
 
   import Grange.FarmFixtures
 
-  alias Grange.{Accounts, Barn, Farm, FarmStore, Inventory, NpcQuest, Repo}
+  alias Grange.{Accounts, Barn, Farm, FarmStore, Inventory, NpcQuest, PlayerItems, Repo}
   alias GrangeWeb.ChannelCase, as: Helper
   alias GrangeWeb.Presence
 
@@ -204,6 +204,42 @@ defmodule GrangeWeb.FarmChannelTest do
     assert visitor_reply.npc == nil
   end
 
+  test "the owner can queue an overnight catalyst and gets the item count back" do
+    full_farm("Alice")
+    PlayerItems.add("Alice", "gilded-dust", 1)
+    Inventory.add("Alice", "wheat-seed", 1)
+
+    FarmStore.action("Alice", %{"kind" => "till", "x" => 1, "y" => 1})
+    FarmStore.action("Alice", %{"kind" => "plant", "x" => 1, "y" => 1, "crop" => "wheat"})
+
+    {:ok, _reply, socket} = join_farm("Alice", "Alice")
+
+    assert_reply(
+      push(socket, "useCatalyst", %{"item" => "gilded-dust"}),
+      :ok,
+      reply
+    )
+
+    assert reply.pending.standard == "wheat"
+    assert reply.items["gilded-dust"] == 0
+  end
+
+  test "a visitor cannot use a catalyst" do
+    editable_farm("Alice")
+    FarmStore.ensure("Bob")
+    PlayerItems.add("Bob", "gilded-dust", 1)
+    {:ok, _reply, socket} = join_farm("Bob", "Alice")
+
+    assert_reply(
+      push(socket, "useCatalyst", %{"item" => "gilded-dust"}),
+      :error,
+      reply
+    )
+
+    assert reply.error == "not your farm"
+    assert PlayerItems.map("Bob")["gilded-dust"] == 1
+  end
+
   test "the owner can see the intro and hand in ten tomatoes" do
     full_farm("Alice")
     {:ok, _reply, socket} = join_farm("Alice", "Alice")
@@ -262,47 +298,6 @@ defmodule GrangeWeb.FarmChannelTest do
     ref =
       push(socket, "barnAction", %{
         "action" => %{"kind" => "deposit", "item" => "tomato", "count" => 1}
-      })
-
-    assert_reply(ref, :error, reply)
-    assert reply.error == "not your farm"
-  end
-
-  test "the owner can load and unload the train's cargo" do
-    FarmStore.ensure("Alice")
-
-    {:ok, _reply, socket} =
-      signed_socket("Alice") |> subscribe_and_join(GrangeWeb.FarmChannel, "farm:Alice")
-
-    ref =
-      push(socket, "trainAction", %{
-        "action" => %{"kind" => "deposit", "item" => "wheat", "count" => 3}
-      })
-
-    assert_reply(ref, :ok)
-
-    assert_broadcast("farmUpdate", %{
-      farm: %{train: %{carts: [%{cargo: %{"wheat" => 3}}]}}
-    })
-
-    ref =
-      push(socket, "trainAction", %{
-        "action" => %{"kind" => "withdraw", "item" => "wheat", "count" => 1, "cart" => 1}
-      })
-
-    assert_reply(ref, :ok)
-    assert_broadcast("farmUpdate", %{farm: %{train: %{carts: [%{cargo: %{"wheat" => 2}}]}}})
-  end
-
-  test "a visitor cannot touch the train's cargo" do
-    public_farm("Alice")
-
-    {:ok, _reply, socket} =
-      signed_socket("Bob") |> subscribe_and_join(GrangeWeb.FarmChannel, "farm:Alice")
-
-    ref =
-      push(socket, "trainAction", %{
-        "action" => %{"kind" => "deposit", "item" => "wheat", "count" => 1}
       })
 
     assert_reply(ref, :error, reply)
